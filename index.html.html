@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Programación de Auditorías</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#1a1a2e;--ink-soft:#4a4a6a;--surface:#f7f5f2;--card:#fff;
+  --accent:#c8433a;--accent-dk:#a8332a;--accent-lt:#f5ebe9;
+  --green:#2d7a4f;--green-lt:#e8f5ee;--border:#e2ddd8;
+  --shadow:0 2px 12px rgba(26,26,46,.09);
+  --r:10px;--font:'Inter','Segoe UI',sans-serif;--head:'Georgia',serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--surface);color:var(--ink);min-height:100vh;font-size:15px}
+.app-header{background:var(--ink);color:#fff;padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.brand{font-family:var(--head);font-size:18px}.brand span{color:var(--accent)}
+#userLabel{font-size:12px;opacity:.7}
+.btn-logout{background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+.main{max-width:1280px;margin:0 auto;padding:24px 14px 60px}
+.screen{display:none}.screen.active{display:block}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:24px 20px;margin-bottom:18px}
+.card-title{font-family:var(--head);font-size:19px;margin-bottom:6px}
+.card-sub{font-size:13px;color:var(--ink-soft);margin-bottom:20px;line-height:1.5}
+.form-row{margin-bottom:16px}
+.form-row label{display:block;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px}
+.form-row input,.form-row select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:7px;font-family:var(--font);font-size:14px;color:var(--ink);background:var(--card);-webkit-appearance:none;appearance:none;transition:border-color .2s}
+.form-row input:focus,.form-row select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,67,58,.12)}
+.hint{font-size:12px;color:var(--ink-soft);margin-top:3px}
+.hint.ok{color:var(--green);font-weight:600}.hint.warn{color:var(--accent)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 20px;border-radius:8px;font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;transition:background .18s,transform .1s;border:none}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(200,67,58,.3)}
+.btn-primary:hover{background:var(--accent-dk)}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed;box-shadow:none}
+.btn-secondary{background:transparent;color:var(--ink);border:1.5px solid var(--border)}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(45,122,79,.25)}
+.btn-green:hover{background:#236040}
+.btn-full{width:100%}.btn-sm{padding:7px 13px;font-size:12px}
+.tabs{display:flex;gap:3px;margin-bottom:22px;border-bottom:2px solid var(--border);flex-wrap:wrap}
+.tab-btn{background:none;border:none;padding:9px 14px;font-family:var(--font);font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;white-space:nowrap}
+.badge-green{background:var(--green-lt);color:var(--green)}
+.badge-gray{background:#efefef;color:#666}
+.badge-blue{background:#eef4ff;color:#1a4eb5}
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1.5px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:var(--ink);color:#fff;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:7px 6px;text-align:left;white-space:nowrap}
+thead th.center{text-align:center}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface)}
+tbody td{padding:6px 6px;vertical-align:middle;white-space:nowrap}
+tbody td.center{text-align:center}
+@media(min-width:1200px){
+  table{font-size:12px}
+  thead th{font-size:10px;padding:8px 8px}
+  tbody td{padding:7px 8px}
+}
+/* ALERT */
+.alert{border-radius:8px;padding:12px 15px;font-size:13px;line-height:1.5;margin-bottom:16px}
+.alert-success{background:var(--green-lt);color:var(--green);border-left:4px solid var(--green)}
+.alert-error{background:var(--accent-lt);color:var(--accent-dk);border-left:4px solid var(--accent)}
+.alert-info{background:#eef4ff;color:#1a4eb5;border-left:4px solid #3b6fd4}
+/* MATCH */
+.match-card{border:2px solid var(--border);border-radius:9px;padding:13px 15px;cursor:pointer;transition:border-color .18s,background .18s;margin-bottom:9px}
+.match-card.selected{border-color:var(--accent);background:var(--accent-lt)}
+.mc-check{width:20px;height:20px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:13px}
+/* STEP */
+.step-bar{display:flex;align-items:center;gap:7px;margin-bottom:24px}
+.step-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--border);color:var(--ink-soft);flex-shrink:0}
+.step-dot.done{background:var(--green);color:#fff}.step-dot.active{background:var(--accent);color:#fff}
+.step-line{flex:1;height:2px;background:var(--border)}.step-line.done{background:var(--green)}
+/* STATS */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:18px}
+.stat-card{background:var(--surface);border-radius:8px;padding:13px 15px;border:1.5px solid var(--border)}
+.stat-card .sv{font-size:24px;font-weight:800}.stat-card .sl{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft);margin-top:2px}
+/* FILE */
+.file-pick-label{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:28px 20px;border:2.5px dashed var(--border);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
+.file-pick-label:hover,.file-pick-label.dragover{border-color:var(--accent);background:var(--accent-lt)}
+.fpl-icon{font-size:30px}.fpl-title{font-size:15px;font-weight:700;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.fpl-sub{font-size:12px;color:var(--ink-soft)}.fpl-loaded{font-size:12px;color:var(--green);font-weight:600;margin-top:3px}
+/* MISC */
+.divider{border:none;border-top:1.5px solid var(--border);margin:20px 0}
+.flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.success-box{text-align:center;padding:10px 0}
+.success-icon{width:60px;height:60px;background:var(--green-lt);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:26px}
+.spinner-inline{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:14px}
+.loading-spinner{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+#toastContainer{position:fixed;bottom:20px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 24px rgba(26,26,46,.13);animation:slideUp .25s ease}
+.toast.ok{background:var(--green)}
+@keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+.hora-input{border:1.5px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;font-family:var(--font);width:92px;text-align:center}
+.hora-input:focus{outline:none;border-color:var(--green)}
+.del-btn{background:#fff;border:1.5px solid var(--accent);color:var(--accent);border-radius:6px;padding:5px 9px;font-size:13px;cursor:pointer;transition:background .15s}
+.del-btn:hover{background:var(--accent-lt)}
+</style>
+</head>
+<body>
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div style="font-size:14px;color:var(--ink-soft)">Conectando...</div>
+</div>
+<header class="app-header">
+  <div class="brand">Auditorías<span>.</span></div>
+  <div style="font-family:var(--head);font-size:18px;color:var(--accent)">Rifle / Moft</div>
+  <div id="headerButtons" style="display:none;align-items:center;gap:10px">
+    <span id="userLabel"></span>
+    <button class="btn-logout" onclick="abrirCambiarPass()" style="font-size:12px;padding:4px 10px;border-color:rgba(255,255,255,.15)">🔑 Cambiar clave</button>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div></header>
+<div id="toastContainer"></div>
+
+<!-- LOGIN -->
+<div class="screen active" id="screenLogin">
+  <div class="main" style="max-width:400px">
+    <div class="card" style="margin-top:28px">
+      <div class="card-title">Iniciar sesión</div>
+      <div class="card-sub">Sistema de programación de auditorías</div>
+      <div class="form-row"><label>Usuario</label><input type="text" id="loginUser" autocomplete="username"></div>
+      <div class="form-row"><label>Contraseña</label><input type="password" id="loginPass" autocomplete="current-password"></div>
+      <div id="loginError" class="alert alert-error" style="display:none"></div>
+      <button class="btn btn-primary btn-full" id="btnLogin" onclick="doLogin()">Entrar</button>
+      <div style="text-align:center;margin-top:12px">
+        <a href="#" onclick="abrirRecuperarPass()" style="font-size:13px;color:var(--accent);text-decoration:none">¿Olvidé mi contraseña?</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROVEEDOR -->
+<div class="screen" id="screenProveedor">
+  <div class="main">
+    <div class="step-bar">
+      <div class="step-dot active" id="sd1">1</div><div class="step-line" id="sl1"></div>
+      <div class="step-dot" id="sd2">2</div><div class="step-line" id="sl2"></div>
+      <div class="step-dot" id="sd3">3</div>
+    </div>
+    <div id="provStep1">
+      <div id="noDataBanner" class="card" style="display:none;text-align:center;padding:44px 20px">
+        <div style="font-size:38px;margin-bottom:12px">📋</div>
+        <div class="card-title">Base de datos no disponible</div>
+        <div class="card-sub" style="margin-bottom:0">El administrador aún no ha cargado el archivo de referencias.</div>
+      </div>
+      <div class="card" id="searchCard">
+        <div class="card-title" id="searchCardTitle">Solicitar auditoría</div>
+        <div class="card-sub">Selecciona la marca, ingresa la REF y el sistema cargará los paquetes disponibles.</div>
+        <div id="cutoffNotice" class="alert alert-info" style="font-size:12px;margin-bottom:14px;display:none"></div>
+        <!-- Solo visible para admin -->
+        <div id="adminProvRow" class="form-row" style="display:none">
+          <label>Proveedor</label>
+          <select id="fProvAdmin" onchange="onProvAdminChange()">
+            <option value="">Seleccionar proveedor…</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Marca</label>
+          <select id="fMarca" onchange="onMarcaChange()">
+            <option value="">Seleccionar…</option>
+            <option value="Rifle">Rifle</option>
+            <option value="Moft">Moft</option>
+          </select>
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Referencia (REF)</label>
+            <input type="text" id="fRef" placeholder="Ej: 230G150" style="text-transform:uppercase" oninput="scheduleRefSearch()" onblur="doRefSearch()">
+          </div>
+          <div class="form-row">
+            <label>Paquete (PAQ)</label>
+            <select id="fPaq" disabled onchange="checkPaqWarning()"><option value="">Ingresa REF primero…</option></select>
+            <div class="hint" id="hintPaq"></div>
+            <div id="warnPaq" class="alert alert-error" style="display:none;margin-top:6px;padding:8px 12px;font-size:12px"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="buscarReferencia()">Buscar referencia</button>
+      </div>
+    </div>
+    <div id="provStep2" style="display:none">
+      <div class="card">
+        <div class="card-title">Referencias encontradas</div>
+        <div class="card-sub" id="matchSubtitle"></div>
+        <div class="alert alert-info" style="font-size:12px;padding:10px 13px;margin-bottom:10px">Selecciona una o varias. Todas se confirmarán con la misma fecha y hora.</div>
+        <div id="matchList"></div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="toggleAllMatches()">Seleccionar / Deseleccionar todas</button>
+        <div id="matchError" class="alert alert-error" style="display:none;margin-top:10px"></div>
+      </div>
+      <div class="card" id="extraDataCard" style="display:none">
+        <div class="card-title">Datos de la auditoría</div>
+        <div class="card-sub">Aplica para todas las referencias seleccionadas.</div>
+        <div id="selectedSummary" style="margin-bottom:12px"></div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Fecha de auditoría</label>
+            <input type="date" id="fFecha">
+          </div>
+          <div class="form-row">
+            <label>Hora sugerida <span style="font-weight:400;font-size:10px">(el admin la confirma)</span></label>
+            <input type="time" id="fHora">
+          </div>
+        </div>
+        <div id="stepError" class="alert alert-error" style="display:none"></div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn btn-secondary" onclick="goStep(1)">← Volver</button>
+          <button class="btn btn-primary" style="flex:1" id="btnConfirmar" onclick="confirmarAuditoria()">Confirmar auditoría(s)</button>
+        </div>
+      </div>
+    </div>
+    <div id="provStep3" style="display:none">
+      <div class="card">
+        <div class="success-box">
+          <div class="success-icon">✓</div>
+          <div class="card-title" id="successTitle">Auditoría registrada</div>
+          <div class="card-sub" id="successMsg" style="margin-bottom:20px"></div>
+          <button class="btn btn-primary" onclick="nuevaAuditoria()">Registrar otra auditoría</button>
+          <button class="btn btn-secondary btn-full" onclick="terminarRegistros()" style="margin-top:10px">No tengo más auditorías</button>
+        </div>
+      </div>
+    </div>
+    <!-- RESUMEN PROVEEDOR -->
+    <div id="provResumen" style="display:none;margin-top:8px">
+      <div class="card" style="padding:18px 14px">
+        <div class="flex-between" style="margin-bottom:4px">
+          <div style="font-weight:700;font-size:15px">Mis auditorías</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="font-size:12px;color:var(--ink-soft)">Filtrar fecha:</label>
+            <input type="date" id="filtroFechaReg" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderMisAuds()">
+          </div>
+        </div>
+        <div class="card-sub" style="margin-bottom:12px">Se muestran las solicitudes de hoy. Usa el filtro para ver otras fechas.</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Marca</th><th>REF</th><th>PAQ</th><th>Canal</th>
+                <th>Unidades</th><th>Fecha audit.</th><th class="center">Hora sugerida</th><th class="center">Hora confirmada</th>
+                <th>Estado</th><th>Auditor</th><th class="center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tblProvResumen"></tbody>
+            <tfoot id="tblProvFoot"></tfoot>
+          </table>
+        </div>
+        <p id="provResumenEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay solicitudes para esta fecha.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="screen" id="screenAdmin">
+  <div class="main">
+    <div class="flex-between" style="margin-bottom:18px">
+      <h2 style="font-family:var(--head);font-size:21px">Panel de Administración</h2>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('tabRegistros',this)">Solicitudes</button>
+      <button class="tab-btn" onclick="switchTab('tabProgramar',this)">Programar auditoría</button>
+      <button class="tab-btn" onclick="switchTab('tabProveedores',this)">Proveedores</button>
+      <button class="tab-btn" onclick="switchTab('tabAuditores',this)">Auditores</button>
+      <button class="tab-btn" onclick="switchTab('tabArchivo',this)">Archivo base</button>
+    </div>
+
+    <!-- TAB: Solicitudes -->
+    <div class="tab-panel active" id="tabRegistros">
+      <div class="stat-row" id="statsRow"></div>
+      <div class="card" style="padding:18px 14px">
+        <div class="flex-between" style="margin-bottom:12px">
+          <div style="font-weight:700;font-size:14px">Auditorías solicitadas</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-green btn-sm" onclick="enviarConfirmaciones()">✉ Enviar confirmaciones</button>
+            <button class="btn btn-green btn-sm" onclick="exportarExcel()">⬇ Exportar Excel</button>
+          </div>
+        </div>
+        <!-- Filtros -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+          <div class="form-row" style="margin-bottom:0">
+            <label>Fecha registro</label>
+            <input type="date" id="filtroFechaAdmin" oninput="poblarSelectProveedores();renderAdminTablas()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Marca</label>
+            <select id="filtroMarca" onchange="renderAdminTablas()">
+              <option value="">Todas</option>
+              <option value="Rifle">Rifle</option>
+              <option value="Moft">Moft</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Proveedor</label>
+            <select id="filtroProvAdmin" onchange="renderAdminTablas()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Auditor</label>
+            <select id="filtroAuditorAdmin" onchange="renderAdminTablas()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Pantone</th>
+                <th>PAQ</th><th>Canal</th><th>Unidades</th><th>Fecha audit.</th>
+                <th class="center">Hora sugerida</th><th class="center">Hora confirmada</th>
+                <th>Estado</th><th>Auditor</th><th class="center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tblBody"></tbody>
+            <tfoot id="tblFoot"></tfoot>
+          </table>
+        </div>
+        <p id="emptyMsg" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay solicitudes para esta fecha.</p>
+      </div>
+    </div>
+
+    <!-- TAB: Programar auditoría (admin) -->
+    <div class="tab-panel" id="tabProgramar">
+      <div class="card">
+        <div class="card-title">Programar auditoría como administrador</div>
+        <div class="card-sub">La solicitud quedará registrada a nombre del proveedor seleccionado.</div>
+        <div id="adminProgramarForm">
+          <!-- Reutilizamos el mismo flujo pero con el proveedor seleccionado -->
+          <div class="form-row">
+            <label>Proveedor</label>
+            <select id="fProvAdmin2" onchange="onProvAdmin2Change()">
+              <option value="">Seleccionar proveedor…</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Marca</label>
+            <select id="fMarca2" onchange="onMarcaChange2()">
+              <option value="">Seleccionar…</option>
+              <option value="Rifle">Rifle</option>
+              <option value="Moft">Moft</option>
+            </select>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Referencia (REF)</label>
+              <input type="text" id="fRef2" placeholder="Ej: 230G150" style="text-transform:uppercase" oninput="scheduleRefSearch2()" onblur="doRefSearch2()">
+            </div>
+            <div class="form-row">
+              <label>Paquete (PAQ)</label>
+              <select id="fPaq2" disabled onchange="checkPaqWarning2()"><option value="">Ingresa REF primero…</option></select>
+              <div class="hint" id="hintPaq2"></div>
+              <div id="warnPaq2" class="alert alert-error" style="display:none;margin-top:6px;padding:8px 12px;font-size:12px"></div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="buscarReferencia2()">Buscar referencia</button>
+        </div>
+        <!-- Resultado búsqueda admin -->
+        <div id="adminMatchSection" style="display:none;margin-top:18px">
+          <div class="divider"></div>
+          <div style="font-weight:700;margin-bottom:8px" id="adminMatchTitle"></div>
+          <div id="adminMatchList"></div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="toggleAllMatches2()">Seleccionar / Deseleccionar todas</button>
+          <div id="adminMatchError" class="alert alert-error" style="display:none;margin-top:10px"></div>
+          <div id="adminExtraData" style="display:none;margin-top:16px">
+            <div id="adminSelectedSummary" style="margin-bottom:12px"></div>
+            <div class="form-grid">
+              <div class="form-row"><label>Fecha auditoría</label><input type="date" id="fFecha2"></div>
+              <div class="form-row"><label>Hora</label><input type="time" id="fHora2"></div>
+            </div>
+            <div id="adminStepError" class="alert alert-error" style="display:none"></div>
+            <button class="btn btn-primary" id="btnConfirmar2" onclick="confirmarAuditoria2()">Confirmar auditoría(s)</button>
+          </div>
+          <div id="adminConfirmOk" class="alert alert-success" style="display:none;margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Proveedores -->
+    <div class="tab-panel" id="tabProveedores">
+      <div class="card">
+        <div class="card-title">Registrar proveedor</div>
+        <div class="card-sub">Crea la cuenta de acceso para un proveedor.</div>
+        <div class="form-grid">
+          <div class="form-row"><label>Nombre</label><input type="text" id="pNombre" placeholder="Ej: VAJA"></div>
+          <div class="form-row"><label>NIT</label><input type="text" id="pNit" placeholder="Ej: 900123456-1"></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row"><label>Usuario (login)</label><input type="text" id="pUsuario" placeholder="Ej: vaja_prov"></div>
+          <div class="form-row"><label>Contraseña</label><input type="password" id="pPass" placeholder="Mín. 6 caracteres"></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row"><label>Correo principal</label><input type="email" id="pEmail" placeholder="proveedor@empresa.com"></div>
+          <div class="form-row"><label>Correo adicional <span style="font-weight:400;text-transform:none;font-size:10px">(opcional)</span></label><input type="email" id="pEmail2" placeholder="copia@empresa.com"></div>
+        </div>
+        <div id="regProvError" class="alert alert-error" style="display:none"></div>
+        <div id="regProvOk" class="alert alert-success" style="display:none"></div>
+        <button class="btn btn-primary" onclick="registrarProveedor()">Crear cuenta</button>
+      </div>
+      <div class="card" style="padding:18px 14px">
+        <div class="flex-between" style="margin-bottom:12px">
+          <div style="font-weight:700;font-size:14px">Proveedores registrados</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="font-size:12px;color:var(--ink-soft)">Filtrar fecha:</label>
+            <input type="date" id="filtroFechaProvAdmin" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" oninput="renderAdminTablas()">
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nombre</th><th>NIT</th><th>Usuario</th><th>Email</th><th>Creado</th><th>Solicitudes</th><th>Acciones</th></tr></thead>
+            <tbody id="tblProveedores"></tbody>
+          </table>
+        </div>
+        <p id="emptyProvMsg" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay proveedores registrados.</p>
+      </div>
+    </div>
+
+    <!-- TAB: Auditores -->
+    <div class="tab-panel" id="tabAuditores">
+      <div class="card">
+        <div class="card-title">Registrar auditor</div>
+        <div class="card-sub">Agrega auditores disponibles para asignar a las programaciones.</div>
+        <div class="form-grid">
+          <div class="form-row"><label>Nombre completo</label><input type="text" id="aNombre" placeholder="Ej: Eugenia Pérez"></div>
+          <div class="form-row"><label>Correo <span style="font-weight:400;text-transform:none;font-size:10px">(opcional)</span></label><input type="email" id="aEmail" placeholder="auditor@empresa.com"></div>
+        </div>
+        <div id="regAuditorError" class="alert alert-error" style="display:none"></div>
+        <div id="regAuditorOk" class="alert alert-success" style="display:none"></div>
+        <button class="btn btn-primary" onclick="registrarAuditor()">Agregar auditor</button>
+      </div>
+      <div class="card" style="padding:18px 14px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px">Auditores registrados</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nombre</th><th>Correo</th><th>Auditorías asignadas</th><th>Acciones</th></tr></thead>
+            <tbody id="tblAuditores"></tbody>
+          </table>
+        </div>
+        <p id="emptyAuditorMsg" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay auditores registrados.</p>
+      </div>
+    </div>
+
+    <!-- TAB: Archivo base -->
+    <div class="tab-panel" id="tabArchivo">
+      <div class="card">
+        <div class="card-title">Archivos base</div>
+        <div class="card-sub">Carga un archivo por marca. Quedan disponibles para todos los proveedores inmediatamente.</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">📁 Rifle — Seg 2026</div>
+        <input type="file" id="fileRifle" accept="*/*" onchange="procesarArchivo(event.target.files[0],'Rifle')" style="display:none">
+        <label for="fileRifle" class="file-pick-label" style="margin-bottom:18px"
+          ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover')"
+          ondragleave="event.stopPropagation();this.classList.remove('dragover')"
+          ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');procesarArchivo(event.dataTransfer.files[0],'Rifle')">
+          <span class="fpl-icon">📊</span><span class="fpl-title">Seleccionar o arrastrar archivo Rifle</span>
+          <span class="fpl-sub">Seg_2026_producción.xlsx — hoja: Seg 2026</span>
+          <span class="fpl-loaded" id="loadedRifle"></span>
+        </label>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">📁 Moft — Seg 2025</div>
+        <input type="file" id="fileMoft" accept="*/*" onchange="procesarArchivo(event.target.files[0],'Moft')" style="display:none">
+        <label for="fileMoft" class="file-pick-label"
+          ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover')"
+          ondragleave="event.stopPropagation();this.classList.remove('dragover')"
+          ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');procesarArchivo(event.dataTransfer.files[0],'Moft')">
+          <span class="fpl-icon">📊</span><span class="fpl-title">Seleccionar o arrastrar archivo Moft</span>
+          <span class="fpl-sub">Moft_Seg_2025.xlsx — hoja: Mof 2025</span>
+          <span class="fpl-loaded" id="loadedMoft"></span>
+        </label>
+        <div id="archivoOk" class="alert alert-success" style="display:none;margin-top:14px"></div>
+        <button class="btn btn-primary" style="display:none;margin-top:10px" id="btnDescActualizado" onclick="descargarActualizado()">⬇ Descargar con estados actualizados</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FIN -->
+<div class="screen" id="screenFin">
+  <div class="main" style="max-width:440px">
+    <div class="card" style="margin-top:28px;text-align:center">
+      <div class="success-icon" style="background:#eef4ff;color:#3b6fd4">🎉</div>
+      <div class="card-title">Registro completado</div>
+      <div class="card-sub" style="margin-bottom:20px">Todas tus auditorías han sido registradas.</div>
+      <button class="btn btn-primary" onclick="showScreen('screenLogin')">Volver al inicio</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Recuperar contraseña -->
+<div id="modalRecuperarPass" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="width:100%;max-width:380px;margin:0">
+    <div class="card-title">Recuperar contraseña</div>
+    <div class="card-sub">Ingresa tu usuario y te enviaremos la contraseña a tu correo registrado.</div>
+    <div class="form-row"><label>Usuario</label><input type="text" id="recUsuario" placeholder="Tu usuario de acceso"></div>
+    <div id="recError" class="alert alert-error" style="display:none"></div>
+    <div id="recOk" class="alert alert-success" style="display:none"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary" onclick="closeModal('modalRecuperarPass')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="btnRecuperar" onclick="enviarRecuperacion()">Enviar contraseña</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Cambiar contraseña -->
+<div id="modalCambiarPass" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="width:100%;max-width:380px;margin:0">
+    <div class="card-title">Cambiar contraseña</div>
+    <div class="card-sub">Ingresa tu contraseña actual y la nueva.</div>
+    <div class="form-row"><label>Contraseña actual</label><input type="password" id="passActual" placeholder="Contraseña actual"></div>
+    <div class="form-row"><label>Nueva contraseña</label><input type="password" id="passNueva" placeholder="Mínimo 6 caracteres"></div>
+    <div class="form-row"><label>Confirmar nueva contraseña</label><input type="password" id="passConfirmar" placeholder="Repite la nueva contraseña"></div>
+    <div id="cambiarError" class="alert alert-error" style="display:none"></div>
+    <div id="cambiarOk" class="alert alert-success" style="display:none"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary" onclick="closeModal('modalCambiarPass')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="btnCambiarPass" onclick="cambiarPassword()">Guardar nueva contraseña</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PROVEEDOR -->
+<div id="modalEditProv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="width:100%;max-width:460px;margin:0">
+    <div class="card-title">Editar proveedor</div>
+    <input type="hidden" id="editProvId">
+    <div class="form-grid">
+      <div class="form-row"><label>Nombre</label><input type="text" id="editNombre"></div>
+      <div class="form-row"><label>NIT</label><input type="text" id="editNit"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Usuario</label><input type="text" id="editUsuario"></div>
+      <div class="form-row"><label>Nueva contraseña <span style="font-weight:400;font-size:10px">(opcional)</span></label><input type="password" id="editPass"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Correo principal</label><input type="email" id="editEmail"></div>
+      <div class="form-row"><label>Correo adicional</label><input type="email" id="editEmail2"></div>
+    </div>
+    <div id="editProvError" class="alert alert-error" style="display:none"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary" onclick="closeModal('modalEditProv')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="guardarEditProv()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══ CONFIG ══════════════════════════════════════════════ */
+const SB_URL = 'https://gdzbhmsxjgnliequsyin.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkemJobXN4amdubGllcXVzeWluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjgzMDksImV4cCI6MjA5NzIwNDMwOX0._yfWsP0Tino5DWoVDxeWbYr_l2c8Jvbv2YNiNL75Gu8';
+const ADMIN_UN = 'admin', ADMIN_PW = 'admin2026';
+// EmailJS — configura estos valores con tu cuenta
+const EMAILJS_SERVICE  = 'service_q43z06p';
+const EMAILJS_TEMPLATE = '3fp7wvf';
+const EMAILJS_TEMPLATE_PASS = 'f0aiayf';
+const EMAILJS_PUBLIC   = 'm9I0yyByy1Q_2gmxP';
+
+/* ══ SUPABASE ════════════════════════════════════════════ */
+async function sb(path, opts = {}) {
+  const headers = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+  if (opts.prefer) headers['Prefer'] = opts.prefer;
+  const res = await fetch(SB_URL + path, {
+    method: opts.method || 'GET', headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (res.status === 204) return null;
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/* ══ STATE ═══════════════════════════════════════════════ */
+const S = {
+  user: null, role: null, adminId: null,
+  data: { Rifle: [], Moft: [] },
+  wbs: { Rifle: null, Moft: null },
+  auditorias: [], proveedores: [], misAuds: [], auditores: [],
+  selMatches: [], matchRows: [],
+  selMatches2: [], matchRows2: [],
+  step1: null, step1_2: null
+};
+
+/* ══ HELPERS ═════════════════════════════════════════════ */
+function norm(s){ return (s||'').toString().trim().toUpperCase().replace(/\s+/g,' '); }
+function localDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayStr(){ return localDateStr(new Date()); }
+function minAuditDate(){
+  const now = new Date(), days = now.getHours() >= 15 ? 2 : 1;
+  return localDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate()+days));
+}
+function fuzzy(rowProv, u){
+  const r = norm(rowProv);
+  if (!r||!u) return false;
+  if (r===u||r.includes(u)||u.includes(r)) return true;
+  if (u.split(' ').filter(w=>w.length>2).some(w=>r.includes(w))) return true;
+  if (r.split(' ').filter(w=>w.length>3).some(w=>u.includes(w))) return true;
+  return false;
+}
+function parseUnits(val){
+  if (!val && val !== 0) return 0;
+  const clean = val.toString().trim().replace(/,/g,'').replace(/\s/g,'');
+  const n = parseFloat(clean);
+  return isNaN(n) ? 0 : Math.round(n);
+}
+function isPriority(row){
+  const p = norm(row['Proceso']||'');
+  if (p.includes('EN CEDI')||p.includes('CANCELADO')||p.includes('CANC X INCUM')) return false;
+  try {
+    const d = new Date(row['Requerido Bod']);
+    if (isNaN(d)) return true;
+    const now = new Date();
+    return (d.getFullYear()*12+d.getMonth()) <= (now.getFullYear()*12+now.getMonth());
+  } catch { return true; }
+}
+// Solo excluye procesos bloqueados, NO filtra por fecha
+function isElegible(row){
+  const p = norm(row['Proceso']||'');
+  return !p.includes('EN CEDI') && !p.includes('CANCELADO') && !p.includes('CANC X INCUM');
+}
+function toast(msg, ok=false){
+  const el = document.createElement('div');
+  el.className = 'toast'+(ok?' ok':''); el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function closeModal(id){ document.getElementById(id).style.display='none'; }
+
+/* ══ INIT ════════════════════════════════════════════════ */
+async function init(){
+  try {
+    const rows = await sb('/rest/v1/archivo_base?select=id,datos');
+    if (rows) rows.forEach(r=>{
+      if (r.id===1&&r.datos) S.data.Rifle=r.datos;
+      if (r.id===2&&r.datos) S.data.Moft=r.datos;
+    });
+  } catch(e){}
+  document.getElementById('loadingOverlay').style.display='none';
+}
+
+/* ══ AUTH ════════════════════════════════════════════════ */
+async function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  const errEl=document.getElementById('loginError');
+  errEl.style.display='none';
+  if (!u||!p){errEl.textContent='Completa usuario y contraseña.';errEl.style.display='block';return;}
+  if (u===ADMIN_UN&&p===ADMIN_PW){
+    // Compatibilidad temporal — verificar también en Supabase
+  }
+  const btn=document.getElementById('btnLogin');
+  btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span>';
+  try {
+    // Intentar login como admin primero
+    const admRows=await sb('/rest/v1/administradores?select=*&usuario=eq.'+encodeURIComponent(u)+'&pass=eq.'+encodeURIComponent(p));
+    if (admRows&&admRows.length){
+      S.user=admRows[0].nombre;S.role='admin';S.adminId=admRows[0].id;
+      document.getElementById('userLabel').textContent='Admin';
+      document.getElementById('headerButtons').style.display='flex';
+      btn.disabled=false;btn.textContent='Entrar';
+      showScreen('screenAdmin');
+      await cargarDatosAdmin();
+      return;
+    }
+    // Intentar login como proveedor
+    const rows=await sb('/rest/v1/proveedores?select=*&usuario=eq.'+encodeURIComponent(u)+'&pass=eq.'+encodeURIComponent(p));
+    if (rows&&rows.length){
+      S.user=rows[0].nombre;S.role='proveedor';
+      document.getElementById('userLabel').textContent=rows[0].nombre;
+      document.getElementById('headerButtons').style.display='flex';
+      if (!S.data.Rifle.length||!S.data.Moft.length){
+        const archivos=await sb('/rest/v1/archivo_base?select=id,datos');
+        if (archivos) archivos.forEach(r=>{
+          if (r.id===1&&r.datos) S.data.Rifle=r.datos;
+          if (r.id===2&&r.datos) S.data.Moft=r.datos;
+        });
+      }
+      resetStep1();goStep(1);showScreen('screenProveedor');
+      cargarMisAuds();
+    } else {
+      errEl.textContent='Usuario o contraseña incorrectos.';errEl.style.display='block';
+    }
+  } catch(e){errEl.textContent='Error de conexión.';errEl.style.display='block';}
+  btn.disabled=false;btn.textContent='Entrar';
+}
+
+function logout(){
+  S.user=null;S.role=null;S.adminId=null;
+  document.getElementById('headerButtons').style.display='none';
+  document.getElementById('userLabel').textContent='';S.selMatches=[];S.matchRows=[];S.step1=null;
+  S.selMatches2=[];S.matchRows2=[];S.step1_2=null;
+  S.auditorias=[];S.proveedores=[];S.misAuds=[];
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginError').style.display='none';
+  document.getElementById('userLabel').textContent='';
+  showScreen('screenLogin');
+}
+
+/* ══ STEP BAR ════════════════════════════════════════════ */
+function goStep(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('provStep'+i).style.display=i===n?'block':'none';
+    const dot=document.getElementById('sd'+i);
+    dot.className='step-dot '+(i<n?'done':i===n?'active':'');
+    if (i<3) document.getElementById('sl'+i).className='step-line'+(i<n?' done':'');
+  });
+  if (n===1){
+    const has=S.data.Rifle.length>0||S.data.Moft.length>0;
+    document.getElementById('noDataBanner').style.display=has?'none':'block';
+    document.getElementById('searchCard').style.display=has?'block':'none';
+    const notice=document.getElementById('cutoffNotice');
+    const now=new Date();
+    if (now.getHours()>=15){
+      notice.textContent='⚠️ Ya pasaron las 3:00 PM. Solo puedes programar auditorías a partir de pasado mañana.';
+      notice.className='alert alert-error';notice.style.display='block';
+    } else {
+      notice.textContent='ℹ️ Las auditorías para mañana se pueden registrar hasta las 3:00 PM (quedan aprox.'+(15-now.getHours())+'h).';
+      notice.className='alert alert-info';notice.style.display='block';
+    }
+  }
+}
+
+/* ══ RESET ═══════════════════════════════════════════════ */
+function resetStep1(){
+  ['fMarca','fRef','fFecha','fHora'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const paq=document.getElementById('fPaq');
+  if(paq){paq.innerHTML='<option value="">Ingresa REF primero…</option>';paq.disabled=true;}
+  document.getElementById('hintPaq').textContent='';
+  document.getElementById('matchList').innerHTML='';
+  document.getElementById('selectedSummary').innerHTML='';
+  document.getElementById('extraDataCard').style.display='none';
+  document.getElementById('matchError').style.display='none';
+  S.selMatches=[];S.matchRows=[];S.step1=null;
+}
+
+/* ══ DYNAMIC PAQ (proveedor) ═════════════════════════════ */
+function onMarcaChange(){
+  document.getElementById('fPaq').innerHTML='<option value="">Ingresa REF primero…</option>';
+  document.getElementById('fPaq').disabled=true;
+  document.getElementById('hintPaq').textContent='';
+  const ref=document.getElementById('fRef').value.trim().toUpperCase();
+  if (ref.length>=3) doRefSearch();
+}
+let _t1=null;
+function scheduleRefSearch(){clearTimeout(_t1);_t1=setTimeout(doRefSearch,400);}
+function doRefSearch(){
+  const marca=document.getElementById('fMarca').value;
+  const ref=document.getElementById('fRef').value.trim().toUpperCase();
+  const paqSel=document.getElementById('fPaq');
+  const hint=document.getElementById('hintPaq');
+  if (!marca||ref.length<3){paqSel.innerHTML='<option value="">Ingresa REF primero…</option>';paqSel.disabled=true;hint.textContent='';return;}
+  const data=S.data[marca]||[];
+  if (!data.length){paqSel.innerHTML='<option value="">Sin datos</option>';paqSel.disabled=true;hint.textContent='Admin no ha cargado '+marca;hint.className='hint warn';return;}
+  const uNorm=norm(S.user||'');
+  // Mostrar PAQ elegibles (excluye bloqueados, incluye mes futuro con advertencia)
+  const all=data.filter(row=>norm(row['REF'])===ref&&fuzzy(row['PROVEEDOR'],uNorm)&&isElegible(row));
+  if (!all.length){paqSel.innerHTML='<option value="">REF no encontrada</option>';paqSel.disabled=true;hint.textContent='REF no encontrada para tu proveedor en '+marca;hint.className='hint warn';return;}
+  const paqs=[...new Set(all.map(r=>(r['Paq']||'').toString().trim()).filter(Boolean))].sort();
+  paqSel.innerHTML='<option value="">Seleccionar…</option>'+paqs.map(p=>'<option>'+p+'</option>').join('');
+  paqSel.disabled=false;hint.textContent=paqs.length+' paquete(s) disponible(s)';hint.className='hint ok';
+  // Verificar advertencia si ya hay un PAQ seleccionado
+  checkPaqWarning();
+}
+
+/* ══ DYNAMIC PAQ (admin programar) ══════════════════════ */
+function onProvAdmin2Change(){
+  document.getElementById('fMarca2').value='';
+  document.getElementById('fRef2').value='';
+  document.getElementById('fPaq2').innerHTML='<option value="">Ingresa REF primero…</option>';
+  document.getElementById('fPaq2').disabled=true;
+  document.getElementById('hintPaq2').textContent='';
+  document.getElementById('adminMatchSection').style.display='none';
+}
+function onMarcaChange2(){
+  document.getElementById('fPaq2').innerHTML='<option value="">Ingresa REF primero…</option>';
+  document.getElementById('fPaq2').disabled=true;
+  const ref=document.getElementById('fRef2').value.trim().toUpperCase();
+  if (ref.length>=3) doRefSearch2();
+}
+let _t2=null;
+function scheduleRefSearch2(){clearTimeout(_t2);_t2=setTimeout(doRefSearch2,400);}
+function doRefSearch2(){
+  const marca=document.getElementById('fMarca2').value;
+  const ref=document.getElementById('fRef2').value.trim().toUpperCase();
+  const provSel=document.getElementById('fProvAdmin2').value;
+  const paqSel=document.getElementById('fPaq2');
+  const hint=document.getElementById('hintPaq2');
+  if (!marca||ref.length<3){paqSel.innerHTML='<option value="">Ingresa REF primero…</option>';paqSel.disabled=true;hint.textContent='';return;}
+  const data=S.data[marca]||[];
+  if (!data.length){paqSel.innerHTML='<option value="">Sin datos</option>';paqSel.disabled=true;return;}
+  const uNorm=provSel?norm(provSel):null;
+  // Mostrar PAQ elegibles (excluye bloqueados, incluye mes futuro con advertencia)
+  const all=data.filter(row=>{
+    if (norm(row['REF'])!==ref) return false;
+    if (uNorm&&!fuzzy(row['PROVEEDOR'],uNorm)) return false;
+    return isElegible(row);
+  });
+  if (!all.length){paqSel.innerHTML='<option value="">REF no encontrada</option>';paqSel.disabled=true;hint.textContent='REF no encontrada';hint.className='hint warn';return;}
+  const paqs=[...new Set(all.map(r=>(r['Paq']||'').toString().trim()).filter(Boolean))].sort();
+  paqSel.innerHTML='<option value="">Seleccionar…</option>'+paqs.map(p=>'<option>'+p+'</option>').join('');
+  paqSel.disabled=false;hint.textContent=paqs.length+' paquete(s)';hint.className='hint ok';
+  checkPaqWarning2();
+}
+
+function checkPaqWarning(){
+  const marca=document.getElementById('fMarca').value;
+  const ref=document.getElementById('fRef').value.trim().toUpperCase();
+  const paq=document.getElementById('fPaq').value;
+  const warn=document.getElementById('warnPaq');
+  if (!marca||!ref||!paq){warn.style.display='none';return;}
+  const data=S.data[marca]||[];
+  const uNorm=norm(S.user||'');
+  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq)&&fuzzy(r['PROVEEDOR'],uNorm));
+  if (row&&!isPriority(row)){
+    warn.textContent='⚠️ Este paquete no está autorizado para ingresar este mes. Solo podrá ingresar con autorización del jefe de producción.';
+    warn.style.display='block';
+  } else { warn.style.display='none'; }
+}
+function checkPaqWarning2(){
+  const marca=document.getElementById('fMarca2').value;
+  const ref=document.getElementById('fRef2').value.trim().toUpperCase();
+  const paq=document.getElementById('fPaq2').value;
+  const warn=document.getElementById('warnPaq2');
+  if (!marca||!ref||!paq){warn.style.display='none';return;}
+  const data=S.data[marca]||[];
+  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq));
+  if (row&&!isPriority(row)){
+    warn.textContent='⚠️ Este paquete no está autorizado para ingresar este mes. Solo podrá ingresar con autorización del jefe de producción.';
+    warn.style.display='block';
+  } else { warn.style.display='none'; }
+}
+async function buscarReferencia(){
+  const marca=document.getElementById('fMarca').value;
+  const ref=document.getElementById('fRef').value.trim().toUpperCase();
+  const paq=document.getElementById('fPaq').value;
+  if (!marca){toast('Selecciona una marca.');return;}
+  if (!ref){toast('Ingresa la referencia.');return;}
+  if (!paq){toast('Selecciona el paquete.');return;}
+  S.step1={marca,ref,paq};
+  const uNorm=norm(S.user||'');
+  const data=S.data[marca]||[];
+  const matches=data.filter(row=>norm(row['REF'])===ref&&norm((row['Paq']||'').toString())===norm(paq)&&fuzzy(row["PROVEEDOR"],uNorm)&&isElegible(row));
+  if (!matches.length){toast('No se encontró esa referencia.');return;}
+  renderMatches(matches);
+  goStep(2);
+}
+
+/* ══ BUSCAR REFERENCIA (admin) ═══════════════════════════ */
+async function buscarReferencia2(){
+  const provNombre=document.getElementById('fProvAdmin2').value;
+  const marca=document.getElementById('fMarca2').value;
+  const ref=document.getElementById('fRef2').value.trim().toUpperCase();
+  const paq=document.getElementById('fPaq2').value;
+  if (!provNombre){toast('Selecciona un proveedor.');return;}
+  if (!marca){toast('Selecciona una marca.');return;}
+  if (!ref){toast('Ingresa la referencia.');return;}
+  if (!paq){toast('Selecciona el paquete.');return;}
+  S.step1_2={marca,ref,paq,provNombre};
+  const uNorm=norm(provNombre);
+  const data=S.data[marca]||[];
+  const matches=data.filter(row=>norm(row['REF'])===ref&&norm((row['Paq']||'').toString())===norm(paq)&&fuzzy(row["PROVEEDOR"],uNorm)&&isElegible(row));
+  if (!matches.length){toast('No se encontró esa referencia para ese proveedor.');return;}
+  renderMatches2(matches);
+  document.getElementById('adminMatchSection').style.display='block';
+}
+
+/* ══ RENDER MATCHES ══════════════════════════════════════ */
+function buildMatchCard(row, i, prefix){
+  const div=document.createElement('div');
+  div.className='match-card';
+  div.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px">'+
+    '<div class="mc-check" id="'+prefix+'chk'+i+'"></div>'+
+    '<div style="flex:1">'+
+      '<div style="font-weight:700;font-size:14px">'+( row['REF']||'—')+' <span class="badge badge-gray">'+(row['Paq']||'')+'</span> <span class="badge badge-gray">'+(row['CANAL']||'')+'</span></div>'+
+      '<div style="font-size:12px;color:var(--ink-soft);margin-top:3px">Proceso: <strong>'+(row['Proceso']||'—')+'</strong> · Req.Bod: '+(row['Requerido Bod']||'—').toString().substring(0,10)+'</div>'+
+      '<div style="font-size:12px;color:var(--ink-soft)">Pantone: '+(row['Color Pantone']||'—')+' '+(row['NOM COLOR']?'('+row['NOM COLOR']+')':'')+'  · Unids: '+(row['Ppto unids']||'—')+'</div>'+
+    '</div></div>';
+  div.onclick=()=>toggleMatchFn(row,i,prefix);
+  return div;
+}
+
+function renderMatches(rows){
+  S.matchRows=rows;S.selMatches=[];
+  document.getElementById('matchSubtitle').textContent=rows.length+' referencia(s) encontrada(s).';
+  const list=document.getElementById('matchList');list.innerHTML='';
+  document.getElementById('extraDataCard').style.display='none';
+  document.getElementById('selectedSummary').innerHTML='';
+  document.getElementById('matchError').style.display='none';
+  rows.forEach((row,i)=>list.appendChild(buildMatchCard(row,i,'p')));
+  if (rows.length===1) toggleMatchFn(rows[0],0,'p');
+}
+
+function renderMatches2(rows){
+  S.matchRows2=rows;S.selMatches2=[];
+  document.getElementById('adminMatchTitle').textContent=rows.length+' referencia(s) encontrada(s).';
+  const list=document.getElementById('adminMatchList');list.innerHTML='';
+  document.getElementById('adminExtraData').style.display='none';
+  document.getElementById('adminSelectedSummary').innerHTML='';
+  document.getElementById('adminMatchError').style.display='none';
+  document.getElementById('adminConfirmOk').style.display='none';
+  rows.forEach((row,i)=>list.appendChild(buildMatchCard(row,i,'a')));
+  if (rows.length===1) toggleMatchFn(rows[0],0,'a');
+}
+
+function toggleMatchFn(row,idx,prefix){
+  const isAdmin=(prefix==='a');
+  const selArr=isAdmin?S.selMatches2:S.selMatches;
+  const rowArr=isAdmin?S.matchRows2:S.matchRows;
+  const already=selArr.findIndex(m=>m===rowArr[idx]);
+  const chk=document.getElementById(prefix+'chk'+idx);
+  const card=chk.closest('.match-card');
+  if (already>=0){
+    selArr.splice(already,1);card.classList.remove('selected');
+    chk.textContent='';chk.style.background='';chk.style.borderColor='var(--border)';
+  } else {
+    selArr.push(rowArr[idx]);card.classList.add('selected');
+    chk.textContent='✓';chk.style.background='var(--accent)';chk.style.color='#fff';chk.style.borderColor='var(--accent)';
+  }
+  if (isAdmin) updateExtraCard2(); else updateExtraCard();
+}
+
+function toggleAllMatches(){
+  const all=S.selMatches.length===S.matchRows.length;
+  S.selMatches=all?[]:[...S.matchRows];
+  S.matchRows.forEach((_,i)=>{
+    const chk=document.getElementById('pchk'+i),card=chk.closest('.match-card');
+    if (all){card.classList.remove('selected');chk.textContent='';chk.style.background='';chk.style.borderColor='var(--border)';}
+    else{card.classList.add('selected');chk.textContent='✓';chk.style.background='var(--accent)';chk.style.color='#fff';chk.style.borderColor='var(--accent)';}
+  });
+  updateExtraCard();
+}
+function toggleAllMatches2(){
+  const all=S.selMatches2.length===S.matchRows2.length;
+  S.selMatches2=all?[]:[...S.matchRows2];
+  S.matchRows2.forEach((_,i)=>{
+    const chk=document.getElementById('achk'+i),card=chk.closest('.match-card');
+    if (all){card.classList.remove('selected');chk.textContent='';chk.style.background='';chk.style.borderColor='var(--border)';}
+    else{card.classList.add('selected');chk.textContent='✓';chk.style.background='var(--accent)';chk.style.color='#fff';chk.style.borderColor='var(--accent)';}
+  });
+  updateExtraCard2();
+}
+
+function fillExtraCardCommon(fechaEl,horaEl,summEl,sel){
+  summEl.innerHTML=sel.map(r=>'<span class="badge badge-blue" style="margin:2px">'+r['REF']+' '+r['Paq']+' <span style="font-weight:400;font-size:10px">'+r['CANAL']+'</span></span>').join('');
+  const minStr=minAuditDate();
+  fechaEl.min=minStr;
+  if(!fechaEl.value||fechaEl.value<minStr)fechaEl.value=minStr;
+  if(!horaEl.value)horaEl.value='08:00';
+}
+function updateExtraCard(){
+  const sel=S.selMatches;
+  const card=document.getElementById('extraDataCard');
+  if (!sel.length){card.style.display='none';document.getElementById('selectedSummary').innerHTML='';return;}
+  card.style.display='block';document.getElementById('stepError').style.display='none';
+  fillExtraCardCommon(document.getElementById('fFecha'),document.getElementById('fHora'),document.getElementById('selectedSummary'),sel);
+}
+function updateExtraCard2(){
+  const sel=S.selMatches2;
+  const card=document.getElementById('adminExtraData');
+  if (!sel.length){card.style.display='none';document.getElementById('adminSelectedSummary').innerHTML='';return;}
+  card.style.display='block';document.getElementById('adminStepError').style.display='none';
+  fillExtraCardCommon(document.getElementById('fFecha2'),document.getElementById('fHora2'),document.getElementById('adminSelectedSummary'),sel);
+}
+
+/* ══ CONFIRMAR (proveedor) ═══════════════════════════════ */
+async function confirmarAuditoria(){
+  if (!S.selMatches.length){document.getElementById('matchError').textContent='Selecciona al menos una referencia.';document.getElementById('matchError').style.display='block';return;}
+  const fecha=document.getElementById('fFecha').value;
+  const hora=document.getElementById('fHora').value;
+  const errEl=document.getElementById('stepError');errEl.style.display='none';
+  if (!fecha||!hora){errEl.textContent='Completa Fecha y Hora.';errEl.style.display='block';return;}
+  const now=new Date();
+  const manana=localDateStr(new Date(now.getFullYear(),now.getMonth(),now.getDate()+1));
+  if (now.getHours()>=15&&fecha===manana){errEl.textContent='Ya pasaron las 3:00 PM. Fecha mínima: '+minAuditDate()+'.';errEl.style.display='block';return;}
+  const btn=document.getElementById('btnConfirmar');
+  btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span> Guardando…';
+  try {
+    const registrado=todayStr();
+    const inserts=S.selMatches.map(row=>({
+      proveedor:S.user,ref:row['REF']||'',color_pantone:(row['Color Pantone']||'').toString().trim().toUpperCase(),
+      paq:(row['Paq']||'').toString(),
+      canal:(row['CANAL']||'').toString().trim(),
+      unidades:parseUnits(row['Ppto unids']),
+      fecha_audit:fecha,hora,requerido_bod:(row['Requerido Bod']||'').toString().substring(0,10),
+      proceso_anterior:row['Proceso']||'',estado:'11 Auditoria',marca:S.step1?S.step1.marca:'',registrado,
+      no_autorizado:!isPriority(row)
+    }));
+    await sb('/rest/v1/auditorias',{method:'POST',body:inserts,prefer:'return=representation'});
+    document.getElementById('successTitle').textContent=S.selMatches.length+' auditoría(s) registrada(s)';
+    document.getElementById('successMsg').textContent=S.selMatches.map(r=>r['REF']).join(', ')+' — '+fecha+' a las '+hora;
+    goStep(3);toast('✓ '+S.selMatches.length+' auditoría(s) registrada(s)',true);
+    cargarMisAuds();
+  } catch(e){errEl.textContent='Error al guardar. Intenta de nuevo.';errEl.style.display='block';}
+  btn.disabled=false;btn.textContent='Confirmar auditoría(s)';
+}
+
+/* ══ CONFIRMAR (admin) ═══════════════════════════════════ */
+async function confirmarAuditoria2(){
+  if (!S.selMatches2.length){document.getElementById('adminMatchError').textContent='Selecciona al menos una referencia.';document.getElementById('adminMatchError').style.display='block';return;}
+  const provNombre=S.step1_2?S.step1_2.provNombre:'';
+  if (!provNombre){toast('Selecciona un proveedor primero.');return;}
+  const fecha=document.getElementById('fFecha2').value;
+  const hora=document.getElementById('fHora2').value;
+  const errEl=document.getElementById('adminStepError');errEl.style.display='none';
+  if (!fecha||!hora){errEl.textContent='Completa Fecha y Hora.';errEl.style.display='block';return;}
+  const btn=document.getElementById('btnConfirmar2');
+  btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span> Guardando…';
+  try {
+    const registrado=todayStr();
+    const inserts=S.selMatches2.map(row=>({
+      proveedor:provNombre,ref:row['REF']||'',color_pantone:(row['Color Pantone']||'').toString().trim().toUpperCase(),
+      paq:(row['Paq']||'').toString(),
+      canal:(row['CANAL']||'').toString().trim(),
+      unidades:parseUnits(row['Ppto unids']),
+      fecha_audit:fecha,hora,requerido_bod:(row['Requerido Bod']||'').toString().substring(0,10),
+      proceso_anterior:row['Proceso']||'',estado:'11 Auditoria',marca:S.step1_2?S.step1_2.marca:'',registrado
+    }));
+    await sb('/rest/v1/auditorias',{method:'POST',body:inserts,prefer:'return=representation'});
+    const okEl=document.getElementById('adminConfirmOk');
+    okEl.textContent='✓ '+S.selMatches2.length+' auditoría(s) registrada(s) para '+provNombre;
+    okEl.style.display='block';
+    toast('✓ Auditorías registradas para '+provNombre,true);
+    // Reset admin form
+    document.getElementById('fProvAdmin2').value='';
+    document.getElementById('fMarca2').value='';
+    document.getElementById('fRef2').value='';
+    document.getElementById('fPaq2').innerHTML='<option value="">Ingresa REF primero…</option>';
+    document.getElementById('fPaq2').disabled=true;
+    document.getElementById('adminMatchSection').style.display='none';
+    S.selMatches2=[];S.matchRows2=[];S.step1_2=null;
+    await cargarDatosAdmin();
+  } catch(e){errEl.textContent='Error al guardar.';errEl.style.display='block';}
+  btn.disabled=false;btn.textContent='Confirmar auditoría(s)';
+}
+
+function nuevaAuditoria(){resetStep1();goStep(1);}
+function terminarRegistros(){showScreen('screenFin');}
+
+/* ══ MIS AUDITORÍAS ══════════════════════════════════════ */
+async function cargarMisAuds(){
+  if (!S.user) return;
+  try {
+    const auds=await sb('/rest/v1/auditorias?select=*&order=created_at.desc');
+    const uNorm=norm(S.user);
+    S.misAuds=(auds||[]).filter(a=>fuzzy(a.proveedor,uNorm)&&a.estado!=='Cancelada');
+    // Set default filter to today
+    const fi=document.getElementById('filtroFechaReg');
+    if (fi&&!fi.value) fi.value=todayStr();
+    renderMisAuds();
+  } catch(e){}
+}
+
+function renderMisAuds(){
+  const filtroFecha=document.getElementById('filtroFechaReg')?.value||todayStr();
+  let auds=[...S.misAuds].filter(a=>a.registrado===filtroFecha);
+  auds.sort((a,b)=>{
+    const cm=norm(a.marca||'').localeCompare(norm(b.marca||''));if(cm)return cm;
+    const cq=norm((a.paq||'').toString()).localeCompare(norm((b.paq||'').toString()));if(cq)return cq;
+    return norm(a.ref||'').localeCompare(norm(b.ref||''));
+  });
+  document.getElementById('provResumen').style.display='block';
+  const tbody=document.getElementById('tblProvResumen');tbody.innerHTML='';
+  document.getElementById('provResumenEmpty').style.display=auds.length?'none':'block';
+  let hayNoAutorizados=false;
+  auds.forEach((a,i)=>{
+    const horaConf=a.hora_admin
+      ?'<strong style="color:var(--green)">'+a.hora_admin+'</strong>'
+      :'<span style="color:var(--ink-soft);font-size:11px">Pendiente</span>';
+    const audCell=a.auditor?'<span class="badge badge-green">'+a.auditor+'</span>':'—';
+    const marcaBadge=a.marca==='Moft'?'<span class="badge badge-blue">Moft</span>':'<span class="badge badge-gray">Rifle</span>';
+    const puedeEliminar=!a.auditor&&new Date().getHours()<15;
+    const accion=puedeEliminar?'<button class="del-btn" title="Eliminar" onclick="eliminarMiAud(\''+a.id+'\',\''+a.ref+'\')">🗑</button>':'—';
+    const noAuth=isNoAutorizado(a);
+    if (noAuth) hayNoAutorizados=true;
+    // PAQ: recuadro rojo si no autorizado, igual que admin
+    const paqCell=noAuth
+      ?'<span style="color:var(--accent);font-weight:700;border:1.5px solid var(--accent);border-radius:4px;padding:2px 5px">'+(a.paq||'')+'</span>'
+      :(a.paq||'');
+    const tr=document.createElement('tr');
+    if (noAuth) tr.style.background='#fff8e1';
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+marcaBadge+'</td><td><strong>'+a.ref+'</strong></td>'+
+      '<td>'+paqCell+'</td><td>'+(a.canal||'')+'</td>'+
+      '<td style="text-align:center">'+(a.unidades||'')+'</td>'+
+      '<td style="white-space:nowrap">'+(a.fecha_audit||'')+'</td>'+
+      '<td class="center">'+(a.hora||'')+'</td><td class="center">'+horaConf+'</td>'+
+      '<td><span class="badge badge-blue">Programada</span></td>'+
+      '<td>'+audCell+'</td><td class="center">'+accion+'</td>';
+    tbody.appendChild(tr);
+  });
+  // Total unidades — colspan ajustado para 12 columnas
+  const totalU=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
+  const tfoot=document.getElementById('tblProvFoot');
+  if (tfoot){
+    tfoot.innerHTML=auds.length?
+      '<tr style="background:var(--surface);font-weight:700">'+
+      '<td colspan="5" style="padding:8px 10px;text-align:right;font-size:11px">TOTAL UNIDADES:</td>'+
+      '<td style="padding:8px 10px;color:var(--green);font-size:13px">'+totalU.toLocaleString()+'</td>'+
+      '<td colspan="6"></td></tr>':'';
+  }
+  // Nota si hay paquetes no autorizados
+  let notaEl=document.getElementById('notaNoAuth');
+  if (!notaEl){
+    notaEl=document.createElement('div');notaEl.id='notaNoAuth';
+    notaEl.style.cssText='font-size:12px;margin-top:10px;padding:10px 14px;background:#fff8e1;border-left:4px solid var(--accent);border-radius:6px;color:var(--accent);font-weight:600';
+    document.getElementById('provResumen').querySelector('.card').appendChild(notaEl);
+  }
+  notaEl.style.display=hayNoAutorizados?'block':'none';
+  notaEl.textContent='⚠️ Los paquetes resaltados en rojo no corresponden al mes vigente y solo podrán ingresar con autorización del jefe de producción.';
+}
+
+async function eliminarMiAud(id,ref){
+  if (new Date().getHours()>=15){toast('Ya pasaron las 3:00 PM.');return;}
+  if (!confirm('¿Eliminar REF '+ref+'?')) return;
+  try {
+    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'DELETE'});
+    S.misAuds=S.misAuds.filter(a=>a.id!==id);renderMisAuds();toast('Solicitud eliminada');
+  } catch(e){toast('Error al eliminar.');}
+}
+
+/* ══ ADMIN: CARGAR DATOS ═════════════════════════════════ */
+async function cargarDatosAdmin(){
+  try {
+    const [auds,provs,auds2]=await Promise.all([
+      sb('/rest/v1/auditorias?select=*&order=created_at.desc'),
+      sb('/rest/v1/proveedores?select=*&order=creado.desc'),
+      sb('/rest/v1/auditores?select=*&order=nombre.asc').catch(()=>[])
+    ]);
+    S.auditorias=auds||[];S.proveedores=provs||[];S.auditores=auds2||[];
+    poblarSelectProveedores();
+    const fa=document.getElementById('filtroFechaAdmin');
+    if (fa&&!fa.value) fa.value=todayStr();
+    renderAdminTablas();
+  } catch(e){toast('Error cargando datos.');}
+}
+
+function poblarSelectProveedores(){
+  // filtroProvAdmin: solo proveedores con auditorías en la fecha seleccionada
+  const fa = document.getElementById('filtroFechaAdmin')?.value || todayStr();
+  const activas = S.auditorias.filter(a => a.estado !== 'Cancelada' && a.registrado === fa);
+  const provsEnFecha = [...new Set(activas.map(a => a.proveedor))].sort();
+  const filtroEl = document.getElementById('filtroProvAdmin');
+  if (filtroEl) {
+    const cur = filtroEl.value;
+    filtroEl.innerHTML = '<option value="">Todos</option>';
+    provsEnFecha.forEach(nombre => {
+      const opt = document.createElement('option');
+      opt.value = nombre; opt.textContent = nombre;
+      filtroEl.appendChild(opt);
+    });
+    // Mantener selección si aún está en la lista
+    if (cur && provsEnFecha.includes(cur)) filtroEl.value = cur;
+    else filtroEl.value = '';
+  }
+  // fProvAdmin2: todos los proveedores registrados (para programar auditoría)
+  const sel2 = document.getElementById('fProvAdmin2');
+  if (sel2) {
+    const cur = sel2.value;
+    sel2.innerHTML = '<option value="">Seleccionar proveedor…</option>';
+    S.proveedores.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.nombre; opt.textContent = p.nombre; sel2.appendChild(opt);
+    });
+    if (cur) sel2.value = cur;
+  }
+  // Poblar filtro de auditor
+  const fa2 = document.getElementById('filtroAuditorAdmin');
+  if (fa2) {
+    const cur = fa2.value;
+    fa2.innerHTML = '<option value="">Todos</option>';
+    S.auditores.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.nombre; opt.textContent = a.nombre; fa2.appendChild(opt);
+    });
+    if (cur) fa2.value = cur;
+  }
+  renderTablaAuditores();
+}
+
+function renderAdminTablas(){
+  const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
+  const fm=document.getElementById('filtroMarca')?.value||'';
+  const fp=norm(document.getElementById('filtroProvAdmin')?.value||'');
+  const fpa=document.getElementById('filtroFechaProvAdmin')?.value||todayStr();
+
+  const activas=S.auditorias.filter(a=>a.estado!=='Cancelada');
+  // Stats (hoy)
+  const hoy=todayStr();
+  const hoySols=activas.filter(a=>a.registrado===hoy);
+  const pendientes=activas.filter(a=>!a.auditor).length;
+  const provsHoy=[...new Set(hoySols.map(a=>a.proveedor))].length;
+  document.getElementById('statsRow').innerHTML=
+    '<div class="stat-card"><div class="sv">'+hoySols.length+'</div><div class="sl">Hoy</div></div>'+
+    '<div class="stat-card"><div class="sv">'+pendientes+'</div><div class="sl">Pendientes por asignar</div></div>'+
+    '<div class="stat-card"><div class="sv">'+provsHoy+'</div><div class="sl">Proveedores hoy</div></div>';
+
+  // Tabla auditorias
+  const faud=norm(document.getElementById('filtroAuditorAdmin')?.value||'');
+  let filtered=activas.filter(a=>{
+    if (a.registrado!==fa) return false;
+    if (fm&&(a.marca||'')!==fm) return false;
+    if (fp&&!norm(a.proveedor||'').includes(fp)) return false;
+    if (faud&&norm(a.auditor||'')!==faud) return false;
+    return true;
+  }).sort((a,b)=>{
+    // Orden: auditor → hora confirmada → proveedor
+    const ca=norm(a.auditor||'').localeCompare(norm(b.auditor||''));if(ca)return ca;
+    const ch=(a.hora_admin||a.hora||'').localeCompare(b.hora_admin||b.hora||'');if(ch)return ch;
+    return norm(a.proveedor||'').localeCompare(norm(b.proveedor||''));
+  });
+  const tbody=document.getElementById('tblBody');tbody.innerHTML='';
+  document.getElementById('emptyMsg').style.display=filtered.length?'none':'block';
+  let hayNoAutAdmin=false;
+  filtered.forEach((a,i)=>{
+    const marcaBadge=a.marca==='Moft'?'<span class="badge badge-blue">Moft</span>':'<span class="badge badge-gray">Rifle</span>';
+    const noAuth=isNoAutorizado(a);
+    if (noAuth) hayNoAutAdmin=true;
+    // PAQ cell — rojo y negrita si no autorizado
+    const paqCell=noAuth
+      ?'<span style="color:var(--accent);font-weight:700;border:1.5px solid var(--accent);border-radius:4px;padding:2px 6px">'+( a.paq||'')+'</span>'
+      :(a.paq||'');
+    const tr=document.createElement('tr');
+    if (noAuth) tr.style.background='#fff8e1';
+    tr.innerHTML=
+      '<td>'+(i+1)+'</td><td>'+marcaBadge+'</td><td>'+a.proveedor+'</td><td><strong>'+a.ref+'</strong></td>'+
+      '<td>'+(a.color_pantone||'')+'</td><td>'+paqCell+'</td><td>'+(a.canal||'')+'</td>'+
+      '<td style="text-align:center">'+(a.unidades||'')+'</td>'+
+      '<td style="white-space:nowrap">'+(a.fecha_audit||'')+'</td>'+
+      '<td class="center" style="color:var(--ink-soft);font-size:12px">'+(a.hora||'')+'</td>'+
+      '<td class="center"><input type="time" value="'+(a.hora_admin||a.hora||'')+'" class="hora-input" onchange="actualizarHora(this,\''+a.id+'\')" title="Hora confirmada"></td>'+
+      '<td><span class="badge badge-green">'+(a.estado||'')+'</span></td>'+
+      '<td><select class="auditor-select" style="padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;min-width:100px" data-id="'+a.id+'" onchange="asignarAuditor(this)">'+
+        '<option value="">— Asignar —</option>'+
+        S.auditores.map(au=>'<option '+(a.auditor===au.nombre?'selected':'')+'>'+au.nombre+'</option>').join('')+
+      '</select></td>'+
+      '<td class="center"><button class="del-btn" title="Eliminar" onclick="eliminarAud(\''+a.id+'\')">🗑</button></td>';
+    tbody.appendChild(tr);
+  });
+  // Total unidades + nota no autorizados
+  const totalU=filtered.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
+  const tfoot=document.getElementById('tblFoot');
+  if (tfoot){
+    let footHtml='';
+    if (filtered.length){
+      footHtml+='<tr style="background:var(--surface);font-weight:700">'+
+        '<td colspan="7" style="padding:8px 8px;text-align:right;font-size:11px">TOTAL UNIDADES:</td>'+
+        '<td style="text-align:center;padding:8px 8px;color:var(--green);font-size:13px">'+totalU.toLocaleString()+'</td>'+
+        '<td colspan="6"></td></tr>';
+      if (hayNoAutAdmin){
+        footHtml+='<tr><td colspan="14" style="padding:8px 10px;color:var(--accent);font-size:11px;font-weight:600;background:#fff8e1;border-top:2px solid var(--accent)">'+
+          '⚠️ Los paquetes resaltados en rojo no corresponden al mes vigente y solo podrán ingresar con autorización del jefe de producción.'+
+          '</td></tr>';
+      }
+    }
+    tfoot.innerHTML=footHtml;
+  }
+
+  // Tabla proveedores
+  const tp=document.getElementById('tblProveedores');tp.innerHTML='';
+  // Filtrar por fecha de creación del proveedor (o mostrar todos si no hay filtro)
+  const provsFiltrados=S.proveedores.filter(p=>!fpa||p.creado===fpa);
+  document.getElementById('emptyProvMsg').style.display=provsFiltrados.length?'none':'block';
+  provsFiltrados.forEach((p,i)=>{
+    const solCount=S.auditorias.filter(a=>a.proveedor===p.nombre&&a.registrado===fpa).length;
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+p.nombre+'</td><td>'+(p.nit||'—')+'</td><td>'+p.usuario+'</td>'+
+      '<td style="font-size:12px">'+(p.email||'—')+'</td><td style="white-space:nowrap">'+(p.creado||'—')+'</td>'+
+      '<td style="text-align:center">'+solCount+'</td>'+
+      '<td style="white-space:nowrap;display:flex;gap:6px">'+
+        '<button class="btn btn-sm btn-secondary" onclick="abrirEditProv(\''+p.id+'\')">✏️</button>'+
+        '<button class="del-btn" onclick="eliminarProv(\''+p.id+'\',\''+p.nombre+'\')">🗑</button>'+
+      '</td>';
+    tp.appendChild(tr);
+  });
+}
+
+/* ══ ADMIN: ACCIONES ═════════════════════════════════════ */
+async function actualizarHora(input,id){
+  try {
+    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{hora_admin:input.value}});
+    const a=S.auditorias.find(x=>x.id===id);if(a)a.hora_admin=input.value;
+    input.style.borderColor='var(--green)';
+    setTimeout(()=>input.style.borderColor='var(--border)',2000);
+    toast('Hora confirmada: '+input.value,true);
+  } catch(e){toast('Error al actualizar hora.');}
+}
+
+async function asignarAuditor(sel){
+  const id=sel.dataset.id,val=sel.value;
+  try {
+    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{auditor:val}});
+    const a=S.auditorias.find(x=>x.id===id);if(a)a.auditor=val;
+    toast(val?'Auditor: '+val:'Auditor removido',!!val);
+  } catch(e){toast('Error al asignar auditor.');}
+}
+
+async function eliminarAud(id){
+  if (!confirm('¿Eliminar esta auditoría definitivamente?')) return;
+  try {
+    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'DELETE'});
+    S.auditorias=S.auditorias.filter(a=>a.id!==id);renderAdminTablas();toast('Auditoría eliminada');
+  } catch(e){toast('Error al eliminar.');}
+}
+
+async function registrarProveedor(){
+  const nombre=document.getElementById('pNombre').value.trim();
+  const nit=document.getElementById('pNit').value.trim();
+  const usuario=document.getElementById('pUsuario').value.trim();
+  const pass=document.getElementById('pPass').value;
+  const email=document.getElementById('pEmail').value.trim();
+  const email2=document.getElementById('pEmail2').value.trim();
+  const errEl=document.getElementById('regProvError'),okEl=document.getElementById('regProvOk');
+  errEl.style.display='none';okEl.style.display='none';
+  if (!nombre||!nit||!usuario||!pass){errEl.textContent='Completa los campos obligatorios.';errEl.style.display='block';return;}
+  if (pass.length<6){errEl.textContent='Contraseña mínimo 6 caracteres.';errEl.style.display='block';return;}
+  try {
+    await sb('/rest/v1/proveedores',{method:'POST',body:{nombre,nit,usuario,pass,email,email2,creado:todayStr()},prefer:'return=representation'});
+    okEl.textContent='Cuenta creada para '+nombre+' (usuario: '+usuario+').';okEl.style.display='block';
+    ['pNombre','pNit','pUsuario','pPass','pEmail','pEmail2'].forEach(id=>document.getElementById(id).value='');
+    await cargarDatosAdmin();
+  } catch(e){
+    errEl.textContent=e.message.includes('unique')?'Ese usuario ya existe.':'Error: '+e.message;errEl.style.display='block';
+  }
+}
+
+function abrirEditProv(id){
+  const p=S.proveedores.find(x=>x.id===id);if(!p)return;
+  document.getElementById('editProvId').value=p.id;
+  document.getElementById('editNombre').value=p.nombre;
+  document.getElementById('editNit').value=p.nit||'';
+  document.getElementById('editUsuario').value=p.usuario;
+  document.getElementById('editPass').value='';
+  document.getElementById('editEmail').value=p.email||'';
+  document.getElementById('editEmail2').value=p.email2||'';
+  document.getElementById('editProvError').style.display='none';
+  document.getElementById('modalEditProv').style.display='flex';
+}
+
+async function guardarEditProv(){
+  const id=document.getElementById('editProvId').value;
+  const nombre=document.getElementById('editNombre').value.trim();
+  const nit=document.getElementById('editNit').value.trim();
+  const usuario=document.getElementById('editUsuario').value.trim();
+  const pass=document.getElementById('editPass').value;
+  const email=document.getElementById('editEmail').value.trim();
+  const email2=document.getElementById('editEmail2').value.trim();
+  const errEl=document.getElementById('editProvError');errEl.style.display='none';
+  if (!nombre||!nit||!usuario){errEl.textContent='Completa nombre, NIT y usuario.';errEl.style.display='block';return;}
+  const body={nombre,nit,usuario,email,email2};
+  if (pass){if(pass.length<6){errEl.textContent='Mínimo 6 caracteres.';errEl.style.display='block';return;}body.pass=pass;}
+  try {
+    await sb('/rest/v1/proveedores?id=eq.'+id,{method:'PATCH',body});
+    closeModal('modalEditProv');await cargarDatosAdmin();toast('Proveedor actualizado',true);
+  } catch(e){errEl.textContent='Error: '+e.message;errEl.style.display='block';}
+}
+
+async function eliminarProv(id,nombre){
+  if (!confirm('¿Eliminar el proveedor "'+nombre+'"?')) return;
+  try {
+    await sb('/rest/v1/proveedores?id=eq.'+id,{method:'DELETE'});
+    await cargarDatosAdmin();toast('Proveedor eliminado');
+  } catch(e){toast('Error al eliminar.');}
+}
+
+/* ══ ENVIAR CONFIRMACIONES (EmailJS) ════════════════════ */
+async function enviarConfirmaciones(){
+  const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
+  const activas=S.auditorias.filter(a=>a.estado!=='Cancelada'&&a.registrado===fa);
+  if (!activas.length){toast('No hay auditorías para enviar.');return;}
+
+  // Agrupar por proveedor
+  const byProv={};
+  activas.forEach(a=>{
+    if (!byProv[a.proveedor]) byProv[a.proveedor]=[];
+    byProv[a.proveedor].push(a);
+  });
+
+  let enviados=0, errores=0;
+  for (const [provNombre,auds] of Object.entries(byProv)){
+    const prov=S.proveedores.find(p=>p.nombre===provNombre);
+    const emails=[prov?.email, prov?.email2].filter(Boolean);
+    if (!emails.length){ toast('Sin correo: '+provNombre); continue; }
+
+    const totalUnids=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
+    const resumen=auds.map((a,i)=>
+      (i+1)+'. REF: '+a.ref+' | PAQ: '+a.paq+' | Canal: '+a.canal+
+      ' | Unidades: '+(a.unidades||0)+' | Fecha: '+a.fecha_audit+
+      ' | Hora: '+(a.hora_admin||a.hora||'—')+' | Auditor: '+(a.auditor||'Por asignar')
+    ).join('\n');
+
+    for (const email of emails){
+      try {
+        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+          email,
+          proveedor: provNombre,
+          fecha: fa,
+          resumen,
+          total: totalUnids.toLocaleString()
+        }, EMAILJS_PUBLIC);
+        enviados++;
+      } catch(e){ errores++; toast('Error enviando a '+provNombre+': '+(e.text||e.message)); }
+    }
+  }
+  if (enviados>0) toast('✉ '+enviados+' correo(s) enviado(s)',true);
+  if (errores>0) toast('⚠️ '+errores+' error(es) al enviar');
+}
+
+/* ══ ARCHIVO BASE ════════════════════════════════════════ */
+function procesarArchivo(file,marca){
+  if (!file) return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try {
+      const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      S.wbs[marca]=wb;
+      const parsed=parsearHoja(wb,marca);
+      if (!parsed.length){toast('No se encontraron datos en la hoja de '+marca);return;}
+      await sb('/rest/v1/archivo_base',{
+        method:'POST',body:{id:marca==='Rifle'?1:2,datos:parsed,actualizado_en:new Date().toISOString()},
+        prefer:'return=representation,resolution=merge-duplicates'
+      });
+      S.data[marca]=parsed;
+      document.getElementById('loaded'+marca).textContent='✓ '+file.name+' — '+parsed.length+' registros';
+      document.getElementById('archivoOk').textContent=marca+': '+parsed.length+' referencias cargadas.';
+      document.getElementById('archivoOk').style.display='block';
+      document.getElementById('btnDescActualizado').style.display='inline-flex';
+      toast('✓ '+marca+': '+parsed.length+' registros',true);
+    } catch(err){toast('Error al procesar '+marca+': '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parsearHoja(wb,marca){
+  const sheetName=marca==='Moft'?'Mof 2025':'Seg 2026';
+  const ws=wb.Sheets[sheetName];
+  if (!ws){toast('No se encontró la hoja "'+sheetName+'"');return[];}
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd'});
+  const headerRow=1; // Ambas marcas: headers en fila 1
+  const headers=raw[headerRow]||[];
+  const keep=['PROVEEDOR','REF','Paq','CANAL','Proceso','Requerido Bod','Ppto unids','Color Pantone','NOM COLOR'];
+  const idx={};
+  keep.forEach(k=>{const i=headers.findIndex(h=>(h||'').toString().trim()===k);if(i>=0)idx[k]=i;});
+  const rows=[];
+  for (let i=headerRow+1;i<raw.length;i++){
+    const r=raw[i];if(!r||r.every(c=>!c))continue;
+    const obj={_marca:marca};
+    keep.forEach(k=>{obj[k]=idx[k]!==undefined?(r[idx[k]]||'').toString():'';});
+    rows.push(obj);
+  }
+  return rows;
+}
+
+/* ══ EXPORT ══════════════════════════════════════════════ */
+function exportarExcel(){
+  const activas=S.auditorias.filter(a=>a.estado!=='Cancelada');
+  if (!activas.length){toast('No hay auditorías para exportar.');return;}
+  const rows=activas.map(a=>({
+    'Marca':a.marca||'','Fecha programacion':a.fecha_audit,'Proveedor':a.proveedor,
+    'REF':a.ref,'Color Pantone':a.color_pantone,'PAQ':a.paq,'Canal':a.canal,
+    'Unidades':a.unidades,'Hora sugerida':a.hora,'Hora confirmada':a.hora_admin||'',
+    'Requerido Bod':a.requerido_bod,'Proceso anterior':a.proceso_anterior,
+    'Estado':a.estado,'Registrado':a.registrado,'Auditor':a.auditor||''
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=Object.keys(rows[0]).map(k=>({wch:Math.max(k.length,14)}));
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,ws,'Auditorias Programadas');
+  XLSX.writeFile(wb2,'Auditorias_'+todayStr()+'.xlsx');
+  toast('Exportado correctamente',true);
+}
+
+function descargarActualizado(){
+  ['Rifle','Moft'].forEach(marca=>{
+    const wb=S.wbs[marca];if(!wb)return;
+    const sheetName=marca==='Moft'?'Mof 2025':'Seg 2026';
+    const ws=wb.Sheets[sheetName];if(!ws)return;
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
+    const headers=raw[1]||[];
+    const procesoCol=headers.findIndex(h=>(h||'').toString().trim()==='Proceso');if(procesoCol<0)return;
+    const activas=S.auditorias.filter(a=>a.estado!=='Cancelada'&&(a.marca||'')===marca);
+    activas.forEach(aud=>{
+      for (let r=2;r<raw.length;r++){
+        const row=raw[r];if(!row)continue;
+        const rRef=norm(row[headers.findIndex(h=>h==='REF')]);
+        const rPaq=norm((row[headers.findIndex(h=>h==='Paq')]||'').toString());
+        const rCan=norm(row[headers.findIndex(h=>h==='CANAL')]);
+        if (rRef===norm(aud.ref)&&rPaq===norm(aud.paq)&&rCan===norm(aud.canal)){
+          const addr=XLSX.utils.encode_cell({r,c:procesoCol});
+          if(!ws[addr])ws[addr]={};ws[addr].v='11 Auditoria';ws[addr].t='s';break;
+        }
+      }
+    });
+    XLSX.writeFile(wb,marca+'_Actualizado_'+todayStr()+'.xlsx');
+  });
+  toast('Archivo(s) descargado(s)',true);
+}
+
+function isNoAutorizado(a){
+  // Primero verificar el campo guardado
+  if (a.no_autorizado === true) return true;
+  // Si no está guardado, verificar en tiempo real contra el archivo base
+  const data = S.data[a.marca||''] || [];
+  if (!data.length) return false;
+  const row = data.find(r =>
+    norm(r['REF']) === norm(a.ref||'') &&
+    norm((r['Paq']||'').toString()) === norm((a.paq||'').toString()) &&
+    norm(r['CANAL']||'') === norm(a.canal||'')
+  );
+  if (!row) return false;
+  return !isPriority(row);
+}
+
+/* ══ RECUPERAR / CAMBIAR CONTRASEÑA ═════════════════════ */
+function abrirRecuperarPass(){
+  document.getElementById('recUsuario').value='';
+  document.getElementById('recError').style.display='none';
+  document.getElementById('recOk').style.display='none';
+  document.getElementById('modalRecuperarPass').style.display='flex';
+}
+async function enviarRecuperacion(){
+  const usuario=document.getElementById('recUsuario').value.trim();
+  const errEl=document.getElementById('recError'),okEl=document.getElementById('recOk');
+  errEl.style.display='none';okEl.style.display='none';
+  if (!usuario){errEl.textContent='Ingresa tu usuario.';errEl.style.display='block';return;}
+  const btn=document.getElementById('btnRecuperar');
+  btn.disabled=true;btn.textContent='Enviando…';
+  try {
+    // Buscar en proveedores primero
+    let rows=await sb('/rest/v1/proveedores?select=*&usuario=eq.'+encodeURIComponent(usuario));
+    let esAdmin=false;
+    if (!rows||!rows.length){
+      // Buscar en administradores
+      rows=await sb('/rest/v1/administradores?select=*&usuario=eq.'+encodeURIComponent(usuario));
+      esAdmin=true;
+    }
+    if (!rows||!rows.length){errEl.textContent='Usuario no encontrado.';errEl.style.display='block';btn.disabled=false;btn.textContent='Enviar contraseña';return;}
+    const prov=rows[0];
+    if (!prov.email){errEl.textContent='Sin correo registrado. Contacta al administrador.';errEl.style.display='block';btn.disabled=false;btn.textContent='Enviar contraseña';return;}
+    await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE_PASS,{
+      email:prov.email,
+      proveedor:esAdmin?prov.nombre+' (Administrador)':prov.nombre,
+      usuario:prov.usuario,
+      password:prov.pass
+    },EMAILJS_PUBLIC);
+    okEl.textContent='✓ Contraseña enviada a '+prov.email+'. Revisa tu correo.';okEl.style.display='block';
+  } catch(e){errEl.textContent='Error al enviar. Intenta de nuevo.';errEl.style.display='block';}
+  btn.disabled=false;btn.textContent='Enviar contraseña';
+}
+function abrirCambiarPass(){
+  ['passActual','passNueva','passConfirmar'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cambiarError').style.display='none';
+  document.getElementById('cambiarOk').style.display='none';
+  document.getElementById('modalCambiarPass').style.display='flex';
+}
+async function cambiarPassword(){
+  const actual=document.getElementById('passActual').value;
+  const nueva=document.getElementById('passNueva').value;
+  const confirmar=document.getElementById('passConfirmar').value;
+  const errEl=document.getElementById('cambiarError'),okEl=document.getElementById('cambiarOk');
+  errEl.style.display='none';okEl.style.display='none';
+  if (!actual||!nueva||!confirmar){errEl.textContent='Completa todos los campos.';errEl.style.display='block';return;}
+  if (nueva.length<6){errEl.textContent='Mínimo 6 caracteres.';errEl.style.display='block';return;}
+  if (nueva!==confirmar){errEl.textContent='Las contraseñas nuevas no coinciden.';errEl.style.display='block';return;}
+  const btn=document.getElementById('btnCambiarPass');
+  btn.disabled=true;btn.textContent='Guardando…';
+  try {
+    if (S.role==='admin'){
+      // Verificar contra tabla administradores
+      const rows=await sb('/rest/v1/administradores?select=*&pass=eq.'+encodeURIComponent(actual)+'&id=eq.'+S.adminId);
+      if (!rows||!rows.length){errEl.textContent='La contraseña actual es incorrecta.';errEl.style.display='block';btn.disabled=false;btn.textContent='Guardar nueva contraseña';return;}
+      await sb('/rest/v1/administradores?id=eq.'+S.adminId,{method:'PATCH',body:{pass:nueva}});
+    } else {
+      // Verificar contra tabla proveedores
+      const rows=await sb('/rest/v1/proveedores?select=*&nombre=eq.'+encodeURIComponent(S.user)+'&pass=eq.'+encodeURIComponent(actual));
+      if (!rows||!rows.length){errEl.textContent='La contraseña actual es incorrecta.';errEl.style.display='block';btn.disabled=false;btn.textContent='Guardar nueva contraseña';return;}
+      await sb('/rest/v1/proveedores?id=eq.'+rows[0].id,{method:'PATCH',body:{pass:nueva}});
+    }
+    okEl.textContent='✓ Contraseña actualizada correctamente.';okEl.style.display='block';
+    setTimeout(()=>closeModal('modalCambiarPass'),2000);
+  } catch(e){errEl.textContent='Error al actualizar.';errEl.style.display='block';}
+  btn.disabled=false;btn.textContent='Guardar nueva contraseña';
+}
+
+function renderTablaAuditores(){
+  const tbody=document.getElementById('tblAuditores');if(!tbody)return;
+  tbody.innerHTML='';
+  document.getElementById('emptyAuditorMsg').style.display=S.auditores.length?'none':'block';
+  S.auditores.forEach((a,i)=>{
+    const asignadas=S.auditorias.filter(x=>x.auditor===a.nombre).length;
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+a.nombre+'</td><td>'+(a.email||'—')+'</td>'+
+      '<td style="text-align:center">'+asignadas+'</td>'+
+      '<td><button class="del-btn" onclick="eliminarAuditor(\''+a.id+'\',\''+a.nombre+'\')">🗑</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+async function registrarAuditor(){
+  const nombre=document.getElementById('aNombre').value.trim();
+  const email=document.getElementById('aEmail').value.trim();
+  const errEl=document.getElementById('regAuditorError'),okEl=document.getElementById('regAuditorOk');
+  errEl.style.display='none';okEl.style.display='none';
+  if (!nombre){errEl.textContent='Ingresa el nombre del auditor.';errEl.style.display='block';return;}
+  try {
+    const res=await sb('/rest/v1/auditores',{method:'POST',body:{nombre,email},prefer:'return=representation'});
+    S.auditores.push(...(res||[]));
+    okEl.textContent='Auditor '+nombre+' registrado.';okEl.style.display='block';
+    document.getElementById('aNombre').value='';document.getElementById('aEmail').value='';
+    poblarSelectProveedores();
+    toast('✓ Auditor registrado',true);
+  } catch(e){
+    errEl.textContent=e.message.includes('unique')?'Ese auditor ya existe.':'Error: '+e.message;errEl.style.display='block';
+  }
+}
+
+async function eliminarAuditor(id,nombre){
+  if (!confirm('¿Eliminar el auditor "'+nombre+'"?')) return;
+  try {
+    await sb('/rest/v1/auditores?id=eq.'+id,{method:'DELETE'});
+    S.auditores=S.auditores.filter(a=>a.id!==id);
+    poblarSelectProveedores();toast('Auditor eliminado');
+  } catch(e){toast('Error al eliminar.');}
+}
+
+/* ══ TABS ════════════════════════════════════════════════ */
+function switchTab(panelId,btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(panelId).classList.add('active');btn.classList.add('active');
+  if (['tabRegistros','tabProveedores','tabProgramar','tabAuditores'].includes(panelId)) cargarDatosAdmin();
+}
+
+document.addEventListener('keydown',e=>{
+  if (e.key==='Enter'&&document.getElementById('screenLogin').classList.contains('active')) doLogin();
+});
+
+init();
+</script>
+<!-- EmailJS SDK — configura tu cuenta en emailjs.com -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+</body>
+</html>
