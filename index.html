@@ -904,7 +904,7 @@ function checkPaqWarning(){
   if (!marca||!ref||!paq){warn.style.display='none';return;}
   const data=S.data[marca]||[];
   const uNorm=norm(S.user||'');
-  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq)&&fuzzy(r['PROVEEDOR'],uNorm));
+  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq)&&fuzzy(r['PROVEEDOR'],uNorm)&&isElegible(r));
   if (row&&!isPriority(row)){
     warn.textContent='⚠️ Este paquete no está autorizado para ingresar este mes. Solo podrá ingresar con autorización del jefe de producción.';
     warn.style.display='block';
@@ -917,7 +917,7 @@ function checkPaqWarning2(){
   const warn=document.getElementById('warnPaq2');
   if (!marca||!ref||!paq){warn.style.display='none';return;}
   const data=S.data[marca]||[];
-  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq));
+  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq)&&isElegible(r));
   if (row&&!isPriority(row)){
     warn.textContent='⚠️ Este paquete no está autorizado para ingresar este mes. Solo podrá ingresar con autorización del jefe de producción.';
     warn.style.display='block';
