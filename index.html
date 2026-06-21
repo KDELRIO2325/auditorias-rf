@@ -1601,18 +1601,18 @@ function descargarActualizado(){
 }
 
 function isNoAutorizado(a){
-  // Primero verificar el campo guardado
-  if (a.no_autorizado === true) return true;
-  // Si no está guardado, verificar en tiempo real contra el archivo base
+  // Siempre recalcular en tiempo real si el archivo base está cargado
   const data = S.data[a.marca||''] || [];
-  if (!data.length) return false;
-  const row = data.find(r =>
-    norm(r['REF']) === norm(a.ref||'') &&
-    norm((r['Paq']||'').toString()) === norm((a.paq||'').toString()) &&
-    norm(r['CANAL']||'') === norm(a.canal||'')
-  );
-  if (!row) return false;
-  return !isPriority(row);
+  if (data.length) {
+    const row = data.find(r =>
+      norm(r['REF']) === norm(a.ref||'') &&
+      norm((r['Paq']||'').toString()) === norm((a.paq||'').toString()) &&
+      isElegible(r)
+    );
+    if (row) return !isPriority(row);
+  }
+  // Fallback: usar el campo guardado si no hay datos cargados
+  return a.no_autorizado === true;
 }
 
 /* ══ RECUPERAR / CAMBIAR CONTRASEÑA ═════════════════════ */
