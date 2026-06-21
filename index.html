@@ -105,6 +105,7 @@ tbody td.center{text-align:center}
 .del-btn{background:#fff;border:1.5px solid var(--accent);color:var(--accent);border-radius:6px;padding:5px 9px;font-size:13px;cursor:pointer;transition:background .15s}
 .del-btn:hover{background:var(--accent-lt)}
 .col-hora-sol{display:none}.col-hora-sol.vis{display:table-cell}
+.col-hora-prov{display:none}.col-hora-prov.vis{display:table-cell}
 .refresh-btn{background:transparent;border:1.5px solid var(--border);color:var(--ink-soft);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;transition:background .15s}
 .refresh-btn:hover{background:var(--surface);color:var(--ink)}
 </style>
@@ -235,7 +236,8 @@ tbody td.center{text-align:center}
       <div class="card" style="padding:18px 14px">
         <div class="flex-between" style="margin-bottom:4px">
           <div style="font-weight:700;font-size:15px">Mis auditorías</div>
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button onclick="toggleHoraSugerida()" id="btnToggleHoraSug" class="btn" style="font-size:11px;padding:5px 10px;background:var(--surface);color:var(--ink);border:1.5px solid var(--border)">⏱ Ver hora sugerida</button>
             <label style="font-size:12px;color:var(--ink-soft)">Filtrar fecha:</label>
             <input type="date" id="filtroFechaReg" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderMisAuds()">
           </div>
@@ -246,7 +248,7 @@ tbody td.center{text-align:center}
             <thead>
               <tr>
                 <th>#</th><th>Marca</th><th>REF</th><th>PAQ</th><th>Canal</th>
-                <th>Unidades</th><th>Fecha audit.</th><th class="center">Hora sugerida</th><th class="center">Hora confirmada</th>
+                <th>Unidades</th><th>Fecha audit.</th><th class="center col-hora-prov">Hora sugerida</th><th class="center">Hora confirmada</th>
                 <th>Estado</th><th>Auditor</th><th class="center">Acción</th>
               </tr>
             </thead>
@@ -636,9 +638,10 @@ function fuzzy(rowProv, u){
 }
 function parseUnits(val){
   if (!val && val !== 0) return 0;
-  const clean = val.toString().trim().replace(/,/g,'').replace(/\s/g,'');
-  const n = parseFloat(clean);
-  return isNaN(n) ? 0 : Math.round(n);
+  // Elimina separadores de miles (punto colombiano y coma anglosajona) y espacios
+  const clean = val.toString().trim().replace(/[.,\s]/g,'');
+  const n = parseInt(clean, 10);
+  return isNaN(n) ? 0 : n;
 }
 function isPriority(row){
   const p = norm(row['Proceso']||'');
@@ -647,7 +650,7 @@ function isPriority(row){
     const d = new Date(row['Requerido Bod']);
     if (isNaN(d)) return true;
     const now = new Date();
-    return (d.getFullYear()*12+d.getMonth()) <= (now.getFullYear()*12+now.getMonth());
+    return (d.getFullYear()*12+d.getMonth()) <= (now.getFullYear()*12+now.getMonth() + 1);
   } catch { return true; }
 }
 // Solo excluye procesos bloqueados, NO filtra por fecha
@@ -1149,7 +1152,7 @@ function renderMisAuds(){
       '<td>'+paqCell+'</td><td>'+(a.canal||'')+'</td>'+
       '<td style="text-align:center">'+(a.unidades||'')+'</td>'+
       '<td style="white-space:nowrap">'+(a.fecha_audit||'')+'</td>'+
-      '<td class="center">'+(a.hora||'')+'</td><td class="center">'+horaConf+'</td>'+
+      '<td class="center col-hora-prov">'+(a.hora||'')+'</td><td class="center">'+horaConf+'</td>'+
       '<td><span class="badge badge-blue">Programada</span></td>'+
       '<td>'+audCell+'</td><td class="center">'+accion+'</td>';
     tbody.appendChild(tr);
@@ -1294,7 +1297,7 @@ function renderAdminTablas(){
       '<td><input type="date" value="'+(a.fecha_audit||'')+'" class="hora-input" style="width:108px" min="'+todayStr()+'" onchange="actualizarFechaAud(this,\''+a.id+'\')" title="Modificar fecha"></td>'+
       '<td class="center" style="color:var(--ink-soft);font-size:12px">'+(a.hora||'')+'</td>'+
       '<td class="center col-hora-sol" style="color:var(--ink-soft);font-size:12px">'+horaSol+'</td>'+
-      '<td class="center"><input type="time" value="'+(a.hora_admin||a.hora||'')+'" class="hora-input" onchange="actualizarHora(this,\''+a.id+'\')" title="Hora confirmada"></td>'+
+      '<td class="center"><input type="text" value="'+(a.hora_admin||a.hora||'')+'" class="hora-input" placeholder="HH:MM" pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$" style="width:68px;text-align:center" onchange="actualizarHora(this,\''+a.id+'\')" title="Hora confirmada (formato 24h)"></td>'+
       '<td><span class="badge badge-green">'+(a.estado||'')+'</span></td>'+
       '<td><select class="auditor-select" style="padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;min-width:100px" data-id="'+a.id+'" onchange="asignarAuditor(this)">'+
         '<option value="">— Asignar —</option>'+
@@ -1732,6 +1735,18 @@ function toggleHoraSol(){
   });
   const btn=document.getElementById('btnToggleHoraSol');
   if (btn) btn.style.background=_horaSolVisible?'var(--accent-lt)':'';
+}
+let _horaSugVisible=false;
+function toggleHoraSugerida(){
+  _horaSugVisible=!_horaSugVisible;
+  document.querySelectorAll('.col-hora-prov').forEach(el=>{
+    if (_horaSugVisible) el.classList.add('vis'); else el.classList.remove('vis');
+  });
+  const btn=document.getElementById('btnToggleHoraSug');
+  if (btn){
+    btn.textContent=_horaSugVisible?'⏱ Ocultar hora sugerida':'⏱ Ver hora sugerida';
+    btn.style.background=_horaSugVisible?'var(--accent-lt)':'var(--surface)';
+  }
 }
 
 /* ══ AUDITOR: PANTALLA ═══════════════════════════════════ */
