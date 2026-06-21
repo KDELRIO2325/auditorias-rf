@@ -104,6 +104,9 @@ tbody td.center{text-align:center}
 .hora-input:focus{outline:none;border-color:var(--green)}
 .del-btn{background:#fff;border:1.5px solid var(--accent);color:var(--accent);border-radius:6px;padding:5px 9px;font-size:13px;cursor:pointer;transition:background .15s}
 .del-btn:hover{background:var(--accent-lt)}
+.col-hora-sol{display:none}.col-hora-sol.vis{display:table-cell}
+.refresh-btn{background:transparent;border:1.5px solid var(--border);color:var(--ink-soft);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;transition:background .15s}
+.refresh-btn:hover{background:var(--surface);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -277,7 +280,9 @@ tbody td.center{text-align:center}
       <div class="card" style="padding:18px 14px">
         <div class="flex-between" style="margin-bottom:12px">
           <div style="font-weight:700;font-size:14px">Auditorías solicitadas</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="refresh-btn" onclick="cargarDatosAdmin()" title="Recargar datos del servidor">🔄 Actualizar</button>
+            <button class="refresh-btn" id="btnToggleHoraSol" onclick="toggleHoraSol()" title="Mostrar/ocultar hora de solicitud">👁 Hora solicitud</button>
             <button class="btn btn-green btn-sm" onclick="enviarConfirmaciones()">✉ Enviar confirmaciones</button>
             <button class="btn btn-green btn-sm" onclick="exportarExcel()">⬇ Exportar Excel</button>
           </div>
@@ -315,7 +320,7 @@ tbody td.center{text-align:center}
               <tr>
                 <th>#</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Pantone</th>
                 <th>PAQ</th><th>Canal</th><th>Unidades</th><th>Fecha audit.</th>
-                <th class="center">Hora sugerida</th><th class="center">Hora confirmada</th>
+                <th class="center">Hora sugerida</th><th class="center col-hora-sol">Hora sol.</th><th class="center">Hora confirmada</th>
                 <th>Estado</th><th>Auditor</th><th class="center">Acción</th>
               </tr>
             </thead>
@@ -420,10 +425,14 @@ tbody td.center{text-align:center}
     <div class="tab-panel" id="tabAuditores">
       <div class="card">
         <div class="card-title">Registrar auditor</div>
-        <div class="card-sub">Agrega auditores disponibles para asignar a las programaciones.</div>
+        <div class="card-sub">Agrega auditores con acceso propio al sistema.</div>
         <div class="form-grid">
           <div class="form-row"><label>Nombre completo</label><input type="text" id="aNombre" placeholder="Ej: Eugenia Pérez"></div>
           <div class="form-row"><label>Correo <span style="font-weight:400;text-transform:none;font-size:10px">(opcional)</span></label><input type="email" id="aEmail" placeholder="auditor@empresa.com"></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row"><label>Usuario (login)</label><input type="text" id="aUsuario" placeholder="Ej: eugenia_aud"></div>
+          <div class="form-row"><label>Contraseña</label><input type="password" id="aPass" placeholder="Mín. 6 caracteres"></div>
         </div>
         <div id="regAuditorError" class="alert alert-error" style="display:none"></div>
         <div id="regAuditorOk" class="alert alert-success" style="display:none"></div>
@@ -433,7 +442,7 @@ tbody td.center{text-align:center}
         <div style="font-weight:700;font-size:14px;margin-bottom:12px">Auditores registrados</div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Nombre</th><th>Correo</th><th>Auditorías asignadas</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>#</th><th>Nombre</th><th>Usuario</th><th>Correo</th><th>Auditorías asignadas</th><th>Acciones</th></tr></thead>
             <tbody id="tblAuditores"></tbody>
           </table>
         </div>
@@ -455,6 +464,7 @@ tbody td.center{text-align:center}
           <span class="fpl-icon">📊</span><span class="fpl-title">Seleccionar o arrastrar archivo Rifle</span>
           <span class="fpl-sub">Seg_2026_producción.xlsx — hoja: Seg 2026</span>
           <span class="fpl-loaded" id="loadedRifle"></span>
+          <span id="lastUpdateRifle" style="font-size:11px;color:var(--ink-soft);margin-top:2px"></span>
         </label>
         <div style="font-weight:700;font-size:13px;margin-bottom:8px">📁 Moft — Seg 2025</div>
         <input type="file" id="fileMoft" accept="*/*" onchange="procesarArchivo(event.target.files[0],'Moft')" style="display:none">
@@ -465,10 +475,41 @@ tbody td.center{text-align:center}
           <span class="fpl-icon">📊</span><span class="fpl-title">Seleccionar o arrastrar archivo Moft</span>
           <span class="fpl-sub">Moft_Seg_2025.xlsx — hoja: Mof 2025</span>
           <span class="fpl-loaded" id="loadedMoft"></span>
+          <span id="lastUpdateMoft" style="font-size:11px;color:var(--ink-soft);margin-top:2px"></span>
         </label>
         <div id="archivoOk" class="alert alert-success" style="display:none;margin-top:14px"></div>
         <button class="btn btn-primary" style="display:none;margin-top:10px" id="btnDescActualizado" onclick="descargarActualizado()">⬇ Descargar con estados actualizados</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- AUDITOR -->
+<div class="screen" id="screenAuditor">
+  <div class="main">
+    <div class="card" style="padding:18px 14px">
+      <div class="flex-between" style="margin-bottom:14px">
+        <div style="font-family:var(--head);font-size:19px">Mis auditorías asignadas</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="font-size:12px;color:var(--ink-soft)">Fecha:</label>
+          <input type="date" id="filtroFechaAuditor" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderAudsAuditor()">
+          <button class="refresh-btn" onclick="cargarAudsAuditor()">🔄 Actualizar</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Pantone</th>
+              <th>PAQ</th><th>Canal</th><th>Unidades</th><th>Fecha audit.</th>
+              <th class="center">Hora confirmada</th><th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tblAuditorBody"></tbody>
+          <tfoot id="tblAuditorFoot"></tfoot>
+        </table>
+      </div>
+      <p id="auditorEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay auditorías asignadas para esta fecha.</p>
     </div>
   </div>
 </div>
@@ -627,12 +668,24 @@ function showScreen(id){
 function closeModal(id){ document.getElementById(id).style.display='none'; }
 
 /* ══ INIT ════════════════════════════════════════════════ */
-async function init(){
+function mostrarUltimaActualizacion(marca,actualizado_en){
+  const id=marca==='Rifle'?'lastUpdateRifle':'lastUpdateMoft';
+  const el=document.getElementById(id);if(!el)return;
+  if (!actualizado_en){el.textContent='';return;}
   try {
-    const rows = await sb('/rest/v1/archivo_base?select=id,datos');
+    const d=new Date(actualizado_en);
+    el.textContent='📅 Última actualización: '+d.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+  } catch{el.textContent='';}
+}
+
+async function init(){
+  // Inicializar EmailJS
+  if (typeof emailjs !== 'undefined') emailjs.init({ publicKey: EMAILJS_PUBLIC });
+  try {
+    const rows = await sb('/rest/v1/archivo_base?select=id,datos,actualizado_en');
     if (rows) rows.forEach(r=>{
-      if (r.id===1&&r.datos) S.data.Rifle=r.datos;
-      if (r.id===2&&r.datos) S.data.Moft=r.datos;
+      if (r.id===1&&r.datos){S.data.Rifle=r.datos;mostrarUltimaActualizacion('Rifle',r.actualizado_en);}
+      if (r.id===2&&r.datos){S.data.Moft=r.datos;mostrarUltimaActualizacion('Moft',r.actualizado_en);}
     });
   } catch(e){}
   document.getElementById('loadingOverlay').style.display='none';
@@ -660,6 +713,17 @@ async function doLogin(){
       btn.disabled=false;btn.textContent='Entrar';
       showScreen('screenAdmin');
       await cargarDatosAdmin();
+      return;
+    }
+    // Intentar login como auditor
+    const audRows=await sb('/rest/v1/auditores?select=*&usuario=eq.'+encodeURIComponent(u)+'&pass=eq.'+encodeURIComponent(p));
+    if (audRows&&audRows.length){
+      S.user=audRows[0].nombre;S.role='auditor';
+      document.getElementById('userLabel').textContent=audRows[0].nombre;
+      document.getElementById('headerButtons').style.display='flex';
+      btn.disabled=false;btn.textContent='Entrar';
+      showScreen('screenAuditor');
+      cargarAudsAuditor();
       return;
     }
     // Intentar login como proveedor
@@ -943,9 +1007,9 @@ function toggleAllMatches2(){
   updateExtraCard2();
 }
 
-function fillExtraCardCommon(fechaEl,horaEl,summEl,sel){
+function fillExtraCardCommon(fechaEl,horaEl,summEl,sel,isAdmin=false){
   summEl.innerHTML=sel.map(r=>'<span class="badge badge-blue" style="margin:2px">'+r['REF']+' '+r['Paq']+' <span style="font-weight:400;font-size:10px">'+r['CANAL']+'</span></span>').join('');
-  const minStr=minAuditDate();
+  const minStr=isAdmin?todayStr():minAuditDate();
   fechaEl.min=minStr;
   if(!fechaEl.value||fechaEl.value<minStr)fechaEl.value=minStr;
   if(!horaEl.value)horaEl.value='08:00';
@@ -962,7 +1026,7 @@ function updateExtraCard2(){
   const card=document.getElementById('adminExtraData');
   if (!sel.length){card.style.display='none';document.getElementById('adminSelectedSummary').innerHTML='';return;}
   card.style.display='block';document.getElementById('adminStepError').style.display='none';
-  fillExtraCardCommon(document.getElementById('fFecha2'),document.getElementById('fHora2'),document.getElementById('adminSelectedSummary'),sel);
+  fillExtraCardCommon(document.getElementById('fFecha2'),document.getElementById('fHora2'),document.getElementById('adminSelectedSummary'),sel,true);
 }
 
 /* ══ CONFIRMAR (proveedor) ═══════════════════════════════ */
@@ -1222,12 +1286,14 @@ function renderAdminTablas(){
       :(a.paq||'');
     const tr=document.createElement('tr');
     if (noAuth) tr.style.background='#fff8e1';
+    const horaSol=fmtHoraSol(a.created_at);
     tr.innerHTML=
       '<td>'+(i+1)+'</td><td>'+marcaBadge+'</td><td>'+a.proveedor+'</td><td><strong>'+a.ref+'</strong></td>'+
       '<td>'+(a.color_pantone||'')+'</td><td>'+paqCell+'</td><td>'+(a.canal||'')+'</td>'+
       '<td style="text-align:center">'+(a.unidades||'')+'</td>'+
-      '<td style="white-space:nowrap">'+(a.fecha_audit||'')+'</td>'+
+      '<td><input type="date" value="'+(a.fecha_audit||'')+'" class="hora-input" style="width:108px" min="'+todayStr()+'" onchange="actualizarFechaAud(this,\''+a.id+'\')" title="Modificar fecha"></td>'+
       '<td class="center" style="color:var(--ink-soft);font-size:12px">'+(a.hora||'')+'</td>'+
+      '<td class="center col-hora-sol" style="color:var(--ink-soft);font-size:12px">'+horaSol+'</td>'+
       '<td class="center"><input type="time" value="'+(a.hora_admin||a.hora||'')+'" class="hora-input" onchange="actualizarHora(this,\''+a.id+'\')" title="Hora confirmada"></td>'+
       '<td><span class="badge badge-green">'+(a.estado||'')+'</span></td>'+
       '<td><select class="auditor-select" style="padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;min-width:100px" data-id="'+a.id+'" onchange="asignarAuditor(this)">'+
@@ -1246,9 +1312,9 @@ function renderAdminTablas(){
       footHtml+='<tr style="background:var(--surface);font-weight:700">'+
         '<td colspan="7" style="padding:8px 8px;text-align:right;font-size:11px">TOTAL UNIDADES:</td>'+
         '<td style="text-align:center;padding:8px 8px;color:var(--green);font-size:13px">'+totalU.toLocaleString()+'</td>'+
-        '<td colspan="6"></td></tr>';
+        '<td colspan="7"></td></tr>';
       if (hayNoAutAdmin){
-        footHtml+='<tr><td colspan="14" style="padding:8px 10px;color:var(--accent);font-size:11px;font-weight:600;background:#fff8e1;border-top:2px solid var(--accent)">'+
+        footHtml+='<tr><td colspan="15" style="padding:8px 10px;color:var(--accent);font-size:11px;font-weight:600;background:#fff8e1;border-top:2px solid var(--accent)">'+
           '⚠️ Los paquetes resaltados en rojo no corresponden al mes vigente y solo podrán ingresar con autorización del jefe de producción.'+
           '</td></tr>';
       }
@@ -1278,10 +1344,19 @@ async function actualizarHora(input,id){
   try {
     await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{hora_admin:input.value}});
     const a=S.auditorias.find(x=>x.id===id);if(a)a.hora_admin=input.value;
-    input.style.borderColor='var(--green)';
-    setTimeout(()=>input.style.borderColor='var(--border)',2000);
     toast('Hora confirmada: '+input.value,true);
+    renderAdminTablas();
   } catch(e){toast('Error al actualizar hora.');}
+}
+
+async function actualizarFechaAud(input,id){
+  if (!input.value) return;
+  try {
+    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{fecha_audit:input.value}});
+    const a=S.auditorias.find(x=>x.id===id);if(a)a.fecha_audit=input.value;
+    toast('Fecha actualizada: '+input.value,true);
+    renderAdminTablas();
+  } catch(e){toast('Error al actualizar fecha.');}
 }
 
 async function asignarAuditor(sel){
@@ -1290,6 +1365,7 @@ async function asignarAuditor(sel){
     await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{auditor:val}});
     const a=S.auditorias.find(x=>x.id===id);if(a)a.auditor=val;
     toast(val?'Auditor: '+val:'Auditor removido',!!val);
+    renderAdminTablas();
   } catch(e){toast('Error al asignar auditor.');}
 }
 
@@ -1363,6 +1439,8 @@ async function eliminarProv(id,nombre){
 
 /* ══ ENVIAR CONFIRMACIONES (EmailJS) ════════════════════ */
 async function enviarConfirmaciones(){
+  if (typeof emailjs === 'undefined'){toast('EmailJS no está cargado. Recarga la página.');return;}
+  emailjs.init({ publicKey: EMAILJS_PUBLIC });
   const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
   const activas=S.auditorias.filter(a=>a.estado!=='Cancelada'&&a.registrado===fa);
   if (!activas.length){toast('No hay auditorías para enviar.');return;}
@@ -1395,7 +1473,7 @@ async function enviarConfirmaciones(){
           fecha: fa,
           resumen,
           total: totalUnids.toLocaleString()
-        }, EMAILJS_PUBLIC);
+        });
         enviados++;
       } catch(e){ errores++; toast('Error enviando a '+provNombre+': '+(e.text||e.message)); }
     }
@@ -1420,6 +1498,7 @@ function procesarArchivo(file,marca){
       });
       S.data[marca]=parsed;
       document.getElementById('loaded'+marca).textContent='✓ '+file.name+' — '+parsed.length+' registros';
+      mostrarUltimaActualizacion(marca,new Date().toISOString());
       document.getElementById('archivoOk').textContent=marca+': '+parsed.length+' referencias cargadas.';
       document.getElementById('archivoOk').style.display='block';
       document.getElementById('btnDescActualizado').style.display='inline-flex';
@@ -1540,7 +1619,7 @@ async function enviarRecuperacion(){
       proveedor:esAdmin?prov.nombre+' (Administrador)':prov.nombre,
       usuario:prov.usuario,
       password:prov.pass
-    },EMAILJS_PUBLIC);
+    });
     okEl.textContent='✓ Contraseña enviada a '+prov.email+'. Revisa tu correo.';okEl.style.display='block';
   } catch(e){errEl.textContent='Error al enviar. Intenta de nuevo.';errEl.style.display='block';}
   btn.disabled=false;btn.textContent='Enviar contraseña';
@@ -1587,7 +1666,9 @@ function renderTablaAuditores(){
   S.auditores.forEach((a,i)=>{
     const asignadas=S.auditorias.filter(x=>x.auditor===a.nombre).length;
     const tr=document.createElement('tr');
-    tr.innerHTML='<td>'+(i+1)+'</td><td>'+a.nombre+'</td><td>'+(a.email||'—')+'</td>'+
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+a.nombre+'</td>'+
+      '<td style="font-size:12px">'+(a.usuario?'<span class="badge badge-blue">'+a.usuario+'</span>':'<span style="color:var(--ink-soft)">—</span>')+'</td>'+
+      '<td style="font-size:12px">'+(a.email||'—')+'</td>'+
       '<td style="text-align:center">'+asignadas+'</td>'+
       '<td><button class="del-btn" onclick="eliminarAuditor(\''+a.id+'\',\''+a.nombre+'\')">🗑</button></td>';
     tbody.appendChild(tr);
@@ -1597,18 +1678,24 @@ function renderTablaAuditores(){
 async function registrarAuditor(){
   const nombre=document.getElementById('aNombre').value.trim();
   const email=document.getElementById('aEmail').value.trim();
+  const usuario=document.getElementById('aUsuario').value.trim();
+  const pass=document.getElementById('aPass').value;
   const errEl=document.getElementById('regAuditorError'),okEl=document.getElementById('regAuditorOk');
   errEl.style.display='none';okEl.style.display='none';
   if (!nombre){errEl.textContent='Ingresa el nombre del auditor.';errEl.style.display='block';return;}
+  if (usuario&&pass.length>0&&pass.length<6){errEl.textContent='Contraseña mínimo 6 caracteres.';errEl.style.display='block';return;}
   try {
-    const res=await sb('/rest/v1/auditores',{method:'POST',body:{nombre,email},prefer:'return=representation'});
+    const body={nombre,email};
+    if (usuario) body.usuario=usuario;
+    if (pass) body.pass=pass;
+    const res=await sb('/rest/v1/auditores',{method:'POST',body,prefer:'return=representation'});
     S.auditores.push(...(res||[]));
-    okEl.textContent='Auditor '+nombre+' registrado.';okEl.style.display='block';
-    document.getElementById('aNombre').value='';document.getElementById('aEmail').value='';
+    okEl.textContent='Auditor '+nombre+' registrado'+(usuario?' (usuario: '+usuario+')':'')+'.';okEl.style.display='block';
+    ['aNombre','aEmail','aUsuario','aPass'].forEach(id=>document.getElementById(id).value='');
     poblarSelectProveedores();
     toast('✓ Auditor registrado',true);
   } catch(e){
-    errEl.textContent=e.message.includes('unique')?'Ese auditor ya existe.':'Error: '+e.message;errEl.style.display='block';
+    errEl.textContent=e.message.includes('unique')?'Usuario ya existe.':'Error: '+e.message;errEl.style.display='block';
   }
 }
 
@@ -1629,14 +1716,70 @@ function switchTab(panelId,btn){
   if (['tabRegistros','tabProveedores','tabProgramar','tabAuditores'].includes(panelId)) cargarDatosAdmin();
 }
 
+/* ══ HORA SOLICITUD ══════════════════════════════════════ */
+function fmtHoraSol(created_at){
+  if (!created_at) return '—';
+  try {
+    const d=new Date(created_at);
+    return d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+  } catch { return '—'; }
+}
+let _horaSolVisible=false;
+function toggleHoraSol(){
+  _horaSolVisible=!_horaSolVisible;
+  document.querySelectorAll('.col-hora-sol').forEach(el=>{
+    if (_horaSolVisible) el.classList.add('vis'); else el.classList.remove('vis');
+  });
+  const btn=document.getElementById('btnToggleHoraSol');
+  if (btn) btn.style.background=_horaSolVisible?'var(--accent-lt)':'';
+}
+
+/* ══ AUDITOR: PANTALLA ═══════════════════════════════════ */
+async function cargarAudsAuditor(){
+  try {
+    const auds=await sb('/rest/v1/auditorias?select=*&order=fecha_audit.asc,hora_admin.asc');
+    const uNorm=norm(S.user||'');
+    S.auditorias=(auds||[]).filter(a=>a.estado!=='Cancelada'&&norm(a.auditor||'')===uNorm);
+    const fi=document.getElementById('filtroFechaAuditor');
+    if (fi&&!fi.value) fi.value=todayStr();
+    renderAudsAuditor();
+  } catch(e){ toast('Error cargando auditorías.'); }
+}
+
+function renderAudsAuditor(){
+  const filtroFecha=document.getElementById('filtroFechaAuditor')?.value||todayStr();
+  let auds=S.auditorias.filter(a=>a.fecha_audit===filtroFecha);
+  auds.sort((a,b)=>(a.hora_admin||a.hora||'').localeCompare(b.hora_admin||b.hora||''));
+  const tbody=document.getElementById('tblAuditorBody');
+  tbody.innerHTML='';
+  document.getElementById('auditorEmpty').style.display=auds.length?'none':'block';
+  auds.forEach((a,i)=>{
+    const marcaBadge=a.marca==='Moft'?'<span class="badge badge-blue">Moft</span>':'<span class="badge badge-gray">Rifle</span>';
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+marcaBadge+'</td><td>'+a.proveedor+'</td>'+
+      '<td><strong>'+a.ref+'</strong></td><td>'+(a.color_pantone||'')+'</td>'+
+      '<td>'+(a.paq||'')+'</td><td>'+(a.canal||'')+'</td>'+
+      '<td style="text-align:center">'+(a.unidades||'')+'</td>'+
+      '<td>'+(a.fecha_audit||'')+'</td>'+
+      '<td class="center"><strong style="color:var(--green)">'+(a.hora_admin||a.hora||'—')+'</strong></td>'+
+      '<td><span class="badge badge-green">'+(a.estado||'')+'</span></td>';
+    tbody.appendChild(tr);
+  });
+  const totalU=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
+  document.getElementById('tblAuditorFoot').innerHTML=auds.length?
+    '<tr style="background:var(--surface);font-weight:700">'+
+    '<td colspan="7" style="padding:8px 10px;text-align:right;font-size:11px">TOTAL UNIDADES:</td>'+
+    '<td style="padding:8px 10px;color:var(--green);font-size:13px">'+totalU.toLocaleString()+'</td>'+
+    '<td colspan="3"></td></tr>':'';
+}
+
 document.addEventListener('keydown',e=>{
   if (e.key==='Enter'&&document.getElementById('screenLogin').classList.contains('active')) doLogin();
 });
 
 init();
 </script>
-<!-- EmailJS SDK — configura tu cuenta en emailjs.com -->
+<!-- EmailJS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<script>emailjs.init(EMAILJS_PUBLIC);</script>
 </body>
 </html>
