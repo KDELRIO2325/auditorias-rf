@@ -643,14 +643,41 @@ function parseUnits(val){
   const n = parseInt(clean, 10);
   return isNaN(n) ? 0 : n;
 }
+function parseFechaBod(raw){
+  if (!raw) return null;
+  const s = raw.toString().trim();
+  // DD/MM/YYYY (formato colombiano desde Excel)
+  const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m1) return new Date(+m1[3], +m1[2]-1, +m1[1]);
+  // YYYY-MM-DD (ISO desde carga manual)
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
 function isPriority(row){
   const p = norm(row['Proceso']||'');
   if (p.includes('EN CEDI')||p.includes('CANCELADO')||p.includes('CANC X INCUM')) return false;
   try {
-    const d = new Date(row['Requerido Bod']);
-    if (isNaN(d)) return true;
+    // Política: mes M → PAQs autorizados son M-2 y (M+1)-1
+    const paqStr = (row['Paq']||'').toString().trim();
+    const pm = paqStr.match(/^(\d+)-(\d)$/);
+    if (!pm) return true; // formato desconocido → permitir
+    const paqMes = parseInt(pm[1], 10);   // número de mes del PAQ
+    const paqMitad = parseInt(pm[2], 10); // 1 o 2
+
     const now = new Date();
-    return (d.getFullYear()*12+d.getMonth()) <= (now.getFullYear()*12+now.getMonth() + 1);
+    const mesActual = now.getMonth() + 1; // 1-12
+    const anioActual = now.getFullYear();
+
+    // ¿El PAQ está en la lista autorizada para este mes?
+    const esAutorizado =
+      (paqMes === mesActual     && paqMitad === 2) ||
+      (paqMes === mesActual + 1 && paqMitad === 1);
+    if (!esAutorizado) return false;
+
+    // Además, Req.Bod debe corresponder al mes del número de PAQ
+    const d = parseFechaBod(row['Requerido Bod']);
+    if (!d) return true; // sin fecha → no bloquear
+    return d.getMonth() + 1 === paqMes && d.getFullYear() === anioActual;
   } catch { return true; }
 }
 // Solo excluye procesos bloqueados, NO filtra por fecha
