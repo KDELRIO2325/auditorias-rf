@@ -674,10 +674,7 @@ function isPriority(row){
       (paqMes === mesActual + 1 && paqMitad === 1);
     if (!esAutorizado) return false;
 
-    // Además, Req.Bod debe ser del mes actual (ambos PAQs autorizados ingresan en el mes M)
-    const d = parseFechaBod(row['Requerido Bod']);
-    if (!d) return true; // sin fecha → no bloquear
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === anioActual;
+    return esAutorizado;
   } catch { return true; }
 }
 // Solo excluye procesos bloqueados, NO filtra por fecha
