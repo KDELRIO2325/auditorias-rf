@@ -310,8 +310,8 @@ tbody td.center{text-align:center}
             </select>
           </div>
           <div class="form-row" style="margin-bottom:0">
-            <label>Auditor</label>
-            <select id="filtroAuditorAdmin" onchange="renderAdminTablas()">
+            <label>Auditor <span style="font-weight:400;font-size:10px;color:var(--ink-soft)">(Ctrl+clic para varios)</span></label>
+            <select id="filtroAuditorAdmin" multiple size="3" onchange="renderAdminTablas()" style="min-height:64px">
               <option value="">Todos</option>
             </select>
           </div>
@@ -1256,16 +1256,16 @@ function poblarSelectProveedores(){
     });
     if (cur) sel2.value = cur;
   }
-  // Poblar filtro de auditor
+  // Poblar filtro de auditor (multi-select)
   const fa2 = document.getElementById('filtroAuditorAdmin');
   if (fa2) {
-    const cur = fa2.value;
+    const curSel = [...fa2.selectedOptions].map(o=>o.value);
     fa2.innerHTML = '<option value="">Todos</option>';
     S.auditores.forEach(a => {
       const opt = document.createElement('option');
       opt.value = a.nombre; opt.textContent = a.nombre; fa2.appendChild(opt);
     });
-    if (cur) fa2.value = cur;
+    [...fa2.options].forEach(o=>{ if(curSel.includes(o.value)) o.selected=true; });
   }
   renderTablaAuditores();
 }
@@ -1287,12 +1287,13 @@ function renderAdminTablas(){
     '<div class="stat-card"><div class="sv">'+provsHoy+'</div><div class="sl">Proveedores hoy</div></div>';
 
   // Tabla auditorias
-  const faud=norm(document.getElementById('filtroAuditorAdmin')?.value||'');
+  const faudSel=document.getElementById('filtroAuditorAdmin');
+  const fauds=[...faudSel.selectedOptions].map(o=>norm(o.value)).filter(v=>v!=='');
   let filtered=activas.filter(a=>{
     if (a.registrado!==fa) return false;
     if (fm&&(a.marca||'')!==fm) return false;
     if (fp&&!norm(a.proveedor||'').includes(fp)) return false;
-    if (faud&&norm(a.auditor||'')!==faud) return false;
+    if (fauds.length&&!fauds.includes(norm(a.auditor||''))) return false;
     return true;
   }).sort((a,b)=>{
     // Orden: auditor → hora confirmada → proveedor
@@ -1478,8 +1479,11 @@ async function enviarConfirmaciones(){
   if (typeof emailjs === 'undefined'){toast('EmailJS no está cargado. Recarga la página.');return;}
   emailjs.init({ publicKey: EMAILJS_PUBLIC });
   const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
-  const activas=S.auditorias.filter(a=>a.estado!=='Cancelada'&&a.registrado===fa);
-  if (!activas.length){toast('No hay auditorías para enviar.');return;}
+  // Respetar filtro de proveedor activo
+  const fpFiltro=(document.getElementById('filtroProvAdmin')?.value||'').trim();
+  let activas=S.auditorias.filter(a=>a.estado!=='Cancelada'&&a.registrado===fa);
+  if (fpFiltro) activas=activas.filter(a=>a.proveedor===fpFiltro);
+  if (!activas.length){toast('No hay auditorías'+(fpFiltro?' para '+fpFiltro:'')+' en esta fecha.');return;}
 
   // Agrupar por proveedor
   const byProv={};
@@ -1488,31 +1492,59 @@ async function enviarConfirmaciones(){
     byProv[a.proveedor].push(a);
   });
 
+  const numProvs=Object.keys(byProv).length;
+  if (!confirm('¿Enviar correo de confirmación a '+(fpFiltro||numProvs+' proveedor'+(numProvs!==1?'es':''))+'?')) return;
+
   let enviados=0, errores=0;
   for (const [provNombre,auds] of Object.entries(byProv)){
     const prov=S.proveedores.find(p=>p.nombre===provNombre);
-    const emails=[prov?.email, prov?.email2].filter(Boolean);
-    if (!emails.length){ toast('Sin correo: '+provNombre); continue; }
+    // Solo email principal — EmailJS Free no soporta múltiples destinatarios en un envío
+    const emailPrincipal=prov?.email;
+    if (!emailPrincipal){ toast('Sin correo: '+provNombre); continue; }
 
     const totalUnids=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
-    const resumen=auds.map((a,i)=>
-      (i+1)+'. REF: '+a.ref+' | PAQ: '+a.paq+' | Canal: '+a.canal+
-      ' | Unidades: '+(a.unidades||0)+' | Fecha: '+a.fecha_audit+
-      ' | Hora: '+(a.hora_admin||a.hora||'—')+' | Auditor: '+(a.auditor||'Por asignar')
-    ).join('\n');
 
-    for (const email of emails){
-      try {
-        await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
-          email,
-          proveedor: provNombre,
-          fecha: fa,
-          resumen,
-          total: totalUnids.toLocaleString()
-        });
-        enviados++;
-      } catch(e){ errores++; toast('Error enviando a '+provNombre+': '+(e.text||e.message)); }
-    }
+    // Tabla HTML igual a "Mis auditorías"
+    const filas=auds.map((a,i)=>
+      '<tr style="background:'+(i%2===0?'#f9f9f9':'#ffffff')+'">'
+      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+(i+1)+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #ddd"><strong>'+a.ref+'</strong></td>'
+      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+a.paq+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #ddd">'+a.canal+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+(a.unidades||0)+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #ddd">'+a.fecha_audit+'</td>'
+      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center"><strong style="color:#2e7d32">'+(a.hora_admin||a.hora||'—')+'</strong></td>'
+      +'<td style="padding:6px 8px;border:1px solid #ddd">'+(a.auditor||'Por asignar')+'</td>'
+      +'</tr>'
+    ).join('');
+
+    const resumen='<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px">'
+      +'<thead><tr style="background:#1a1a2e;color:#fff">'
+      +'<th style="padding:8px;border:1px solid #333">#</th>'
+      +'<th style="padding:8px;border:1px solid #333">REF</th>'
+      +'<th style="padding:8px;border:1px solid #333">PAQ</th>'
+      +'<th style="padding:8px;border:1px solid #333">Canal</th>'
+      +'<th style="padding:8px;border:1px solid #333">Unidades</th>'
+      +'<th style="padding:8px;border:1px solid #333">Fecha</th>'
+      +'<th style="padding:8px;border:1px solid #333">Hora</th>'
+      +'<th style="padding:8px;border:1px solid #333">Auditor</th>'
+      +'</tr></thead><tbody>'+filas+'</tbody>'
+      +'<tfoot><tr style="background:#f0f0f0;font-weight:700">'
+      +'<td colspan="4" style="padding:8px;border:1px solid #ddd;text-align:right">TOTAL UNIDADES:</td>'
+      +'<td style="padding:8px;border:1px solid #ddd;text-align:center;color:#2e7d32">'+totalUnids.toLocaleString()+'</td>'
+      +'<td colspan="3" style="border:1px solid #ddd"></td>'
+      +'</tr></tfoot></table>';
+
+    try {
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        email: emailPrincipal,
+        proveedor: provNombre,
+        fecha: fa,
+        resumen,
+        total: totalUnids.toLocaleString()
+      });
+      enviados++;
+    } catch(e){ errores++; toast('Error enviando a '+provNombre+': '+(e.text||e.message)); }
   }
   if (enviados>0) toast('✉ '+enviados+' correo(s) enviado(s)',true);
   if (errores>0) toast('⚠️ '+errores+' error(es) al enviar');
