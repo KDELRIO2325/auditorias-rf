@@ -592,8 +592,8 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const ADMIN_UN = 'admin', ADMIN_PW = 'admin2026';
 // EmailJS — configura estos valores con tu cuenta
 const EMAILJS_SERVICE  = 'service_q43z06p';
-const EMAILJS_TEMPLATE = '3fp7wvf';
-const EMAILJS_TEMPLATE_PASS = 'f0aiayf';
+const EMAILJS_TEMPLATE = 'template_xaoy27b';
+const EMAILJS_TEMPLATE_PASS = 'template_d89w7yh';
 const EMAILJS_PUBLIC   = 'm9I0yyByy1Q_2gmxP';
 
 /* ══ SUPABASE ════════════════════════════════════════════ */
@@ -1321,7 +1321,7 @@ function renderAdminTablas(){
       '<td><input type="date" value="'+(a.fecha_audit||'')+'" class="hora-input" style="width:108px" min="'+todayStr()+'" onchange="actualizarFechaAud(this,\''+a.id+'\')" title="Modificar fecha"></td>'+
       '<td class="center" style="color:var(--ink-soft);font-size:12px">'+(a.hora||'')+'</td>'+
       '<td class="center col-hora-sol" style="color:var(--ink-soft);font-size:12px">'+horaSol+'</td>'+
-      '<td class="center"><input type="text" value="'+(a.hora_admin||a.hora||'')+'" class="hora-input" placeholder="HH:MM" pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$" style="width:68px;text-align:center" onchange="actualizarHora(this,\''+a.id+'\')" title="Hora confirmada (formato 24h)"></td>'+
+      '<td class="center">'+horaSelect(a.hora_admin||a.hora||'',a.id)+'</td>'+
       '<td><span class="badge badge-green">'+(a.estado||'')+'</span></td>'+
       '<td><select class="auditor-select" style="padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;min-width:100px" data-id="'+a.id+'" onchange="asignarAuditor(this)">'+
         '<option value="">— Asignar —</option>'+
@@ -1366,13 +1366,24 @@ function renderAdminTablas(){
   });
 }
 
+/* ══ HORA SELECT ════════════════════════════════════════ */
+function horaSelect(val,id){
+  const slots=[];
+  for(let h=7;h<=16;h++) for(let m=0;m<60;m+=30){
+    const hh=String(h).padStart(2,'0'),mm=String(m).padStart(2,'0');
+    slots.push(hh+':'+mm);
+  }
+  const opts=slots.map(s=>'<option '+(s===val?'selected':'')+'>'+s+'</option>').join('');
+  return '<select class="hora-input" style="padding:3px 4px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:80px" onchange="actualizarHora(this,\''+id+'\')">'+
+    '<option value="">—</option>'+opts+'</select>';
+}
+
 /* ══ ADMIN: ACCIONES ═════════════════════════════════════ */
-async function actualizarHora(input,id){
+async function actualizarHora(sel,id){
   try {
-    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{hora_admin:input.value}});
-    const a=S.auditorias.find(x=>x.id===id);if(a)a.hora_admin=input.value;
-    toast('Hora confirmada: '+input.value,true);
-    renderAdminTablas();
+    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{hora_admin:sel.value}});
+    const a=S.auditorias.find(x=>x.id===id);if(a)a.hora_admin=sel.value;
+    toast('✓ Hora: '+sel.value,true);
   } catch(e){toast('Error al actualizar hora.');}
 }
 
@@ -1381,8 +1392,7 @@ async function actualizarFechaAud(input,id){
   try {
     await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{fecha_audit:input.value}});
     const a=S.auditorias.find(x=>x.id===id);if(a)a.fecha_audit=input.value;
-    toast('Fecha actualizada: '+input.value,true);
-    renderAdminTablas();
+    toast('✓ Fecha: '+input.value,true);
   } catch(e){toast('Error al actualizar fecha.');}
 }
 
@@ -1391,8 +1401,7 @@ async function asignarAuditor(sel){
   try {
     await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{auditor:val}});
     const a=S.auditorias.find(x=>x.id===id);if(a)a.auditor=val;
-    toast(val?'Auditor: '+val:'Auditor removido',!!val);
-    renderAdminTablas();
+    toast(val?'✓ Auditor: '+val:'Auditor removido',!!val);
   } catch(e){toast('Error al asignar auditor.');}
 }
 
