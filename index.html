@@ -108,6 +108,16 @@ tbody td.center{text-align:center}
 .col-hora-prov{display:none}.col-hora-prov.vis{display:table-cell}
 .refresh-btn{background:transparent;border:1.5px solid var(--border);color:var(--ink-soft);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;transition:background .15s}
 .refresh-btn:hover{background:var(--surface);color:var(--ink)}
+/* Custom checkbox dropdown para filtro auditor */
+.cdd-wrap{position:relative}
+.cdd-btn{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:7px;font-family:var(--font);font-size:14px;color:var(--ink);background:var(--card);cursor:pointer;display:flex;justify-content:space-between;align-items:center;text-align:left;transition:border-color .2s}
+.cdd-btn:hover{border-color:var(--accent)}
+.cdd-btn.open{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,67,58,.12)}
+.cdd-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1.5px solid var(--border);border-radius:8px;z-index:300;max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(26,26,46,.12);display:none}
+.cdd-panel.open{display:block}
+.cdd-item{display:flex;align-items:center;gap:9px;padding:8px 13px;cursor:pointer;font-size:13px;transition:background .12s}
+.cdd-item:hover{background:var(--surface)}
+.cdd-item input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -290,10 +300,14 @@ tbody td.center{text-align:center}
           </div>
         </div>
         <!-- Filtros -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px;align-items:end">
           <div class="form-row" style="margin-bottom:0">
             <label>Fecha registro</label>
             <input type="date" id="filtroFechaAdmin" oninput="poblarSelectProveedores();renderAdminTablas()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Fecha auditoría</label>
+            <input type="date" id="filtroFechaAudit" oninput="renderAdminTablas()">
           </div>
           <div class="form-row" style="margin-bottom:0">
             <label>Marca</label>
@@ -310,10 +324,15 @@ tbody td.center{text-align:center}
             </select>
           </div>
           <div class="form-row" style="margin-bottom:0">
-            <label>Auditor <span style="font-weight:400;font-size:10px;color:var(--ink-soft)">(Ctrl+clic para varios)</span></label>
-            <select id="filtroAuditorAdmin" multiple size="3" onchange="renderAdminTablas()" style="min-height:64px">
-              <option value="">Todos</option>
-            </select>
+            <label>Auditor</label>
+            <div class="cdd-wrap">
+              <button type="button" class="cdd-btn" id="auditorDDBtn" onclick="toggleAuditorDD(event)">
+                <span id="auditorDDLabel">Todos</span><span>▾</span>
+              </button>
+              <div class="cdd-panel" id="auditorDDPanel">
+                <label class="cdd-item"><input type="checkbox" id="audDD_todos" checked onchange="auditorDDTodos(this)">Todos</label>
+              </div>
+            </div>
           </div>
         </div>
         <div class="tbl-wrap">
@@ -657,24 +676,18 @@ function isPriority(row){
   const p = norm(row['Proceso']||'');
   if (p.includes('EN CEDI')||p.includes('CANCELADO')||p.includes('CANC X INCUM')) return false;
   try {
-    // Política: mes M → PAQs autorizados son M-2 y (M+1)-1
     const paqStr = (row['Paq']||'').toString().trim();
     const pm = paqStr.match(/^(\d+)-(\d)$/);
-    if (!pm) return true; // formato desconocido → permitir
-    const paqMes = parseInt(pm[1], 10);   // número de mes del PAQ
-    const paqMitad = parseInt(pm[2], 10); // 1 o 2
-
-    const now = new Date();
-    const mesActual = now.getMonth() + 1; // 1-12
-    const anioActual = now.getFullYear();
-
-    // ¿El PAQ está en la lista autorizada para este mes?
-    const esAutorizado =
-      (paqMes === mesActual     && paqMitad === 2) ||
-      (paqMes === mesActual + 1 && paqMitad === 1);
-    if (!esAutorizado) return false;
-
-    return esAutorizado;
+    if (!pm) return true;
+    const paqMes = parseInt(pm[1], 10);
+    const paqMitad = parseInt(pm[2], 10);
+    const mesActual = new Date().getMonth() + 1;
+    // PAQ del mes actual o anteriores: siempre autorizado (atrasados = prioridad)
+    if (paqMes <= mesActual) return true;
+    // PAQ mes siguiente primera mitad: autorizado
+    if (paqMes === mesActual + 1 && paqMitad === 1) return true;
+    // PAQ mes siguiente segunda mitad o más adelante: NO autorizado (adelantado)
+    return false;
   } catch { return true; }
 }
 // Solo excluye procesos bloqueados, NO filtra por fecha
@@ -682,6 +695,40 @@ function isElegible(row){
   const p = norm(row['Proceso']||'');
   return !p.includes('EN CEDI') && !p.includes('CANCELADO') && !p.includes('CANC X INCUM');
 }
+/* ══ DROPDOWN CHECKBOXES AUDITOR ════════════════════════ */
+function toggleAuditorDD(e){
+  e.stopPropagation();
+  const btn=document.getElementById('auditorDDBtn');
+  const panel=document.getElementById('auditorDDPanel');
+  const open=panel.classList.toggle('open');
+  btn.classList.toggle('open',open);
+}
+function auditorDDTodos(cb){
+  if(cb.checked){
+    document.querySelectorAll('#auditorDDPanel input[type=checkbox]:not(#audDD_todos)').forEach(c=>c.checked=false);
+  }
+  updateAuditorDDLabel();renderAdminTablas();
+}
+function auditorDDChange(){
+  const checks=document.querySelectorAll('#auditorDDPanel input[type=checkbox]:not(#audDD_todos):checked');
+  document.getElementById('audDD_todos').checked=checks.length===0;
+  updateAuditorDDLabel();renderAdminTablas();
+}
+function updateAuditorDDLabel(){
+  const checks=[...document.querySelectorAll('#auditorDDPanel input[type=checkbox]:not(#audDD_todos):checked')];
+  const lbl=document.getElementById('auditorDDLabel');
+  if(!lbl)return;
+  if(!checks.length) lbl.textContent='Todos';
+  else if(checks.length===1) lbl.textContent=checks[0].value;
+  else lbl.textContent=checks.length+' auditores';
+}
+function getSelectedAuditores(){
+  return [...document.querySelectorAll('#auditorDDPanel input[type=checkbox]:not(#audDD_todos):checked')].map(c=>norm(c.value));
+}
+document.addEventListener('click',()=>{
+  document.getElementById('auditorDDPanel')?.classList.remove('open');
+  document.getElementById('auditorDDBtn')?.classList.remove('open');
+});
 function toast(msg, ok=false){
   const el = document.createElement('div');
   el.className = 'toast'+(ok?' ok':''); el.textContent = msg;
@@ -1256,22 +1303,25 @@ function poblarSelectProveedores(){
     });
     if (cur) sel2.value = cur;
   }
-  // Poblar filtro de auditor (multi-select)
-  const fa2 = document.getElementById('filtroAuditorAdmin');
-  if (fa2) {
-    const curSel = [...fa2.selectedOptions].map(o=>o.value);
-    fa2.innerHTML = '<option value="">Todos</option>';
+  // Poblar dropdown de checkboxes de auditor
+  const panel = document.getElementById('auditorDDPanel');
+  if (panel) {
+    const curSel = getSelectedAuditores();
+    panel.innerHTML = '<label class="cdd-item"><input type="checkbox" id="audDD_todos" '+(curSel.length===0?'checked':'')+' onchange="auditorDDTodos(this)">Todos</label>';
     S.auditores.forEach(a => {
-      const opt = document.createElement('option');
-      opt.value = a.nombre; opt.textContent = a.nombre; fa2.appendChild(opt);
+      const lbl = document.createElement('label');
+      lbl.className = 'cdd-item';
+      lbl.innerHTML = '<input type="checkbox" value="'+a.nombre+'" '+(curSel.includes(norm(a.nombre))?'checked':'')+' onchange="auditorDDChange()">'+a.nombre;
+      panel.appendChild(lbl);
     });
-    [...fa2.options].forEach(o=>{ if(curSel.includes(o.value)) o.selected=true; });
+    updateAuditorDDLabel();
   }
   renderTablaAuditores();
 }
 
 function renderAdminTablas(){
   const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
+  const ffa=document.getElementById('filtroFechaAudit')?.value||'';
   const fm=document.getElementById('filtroMarca')?.value||'';
   const fp=norm(document.getElementById('filtroProvAdmin')?.value||'');
 
@@ -1287,10 +1337,10 @@ function renderAdminTablas(){
     '<div class="stat-card"><div class="sv">'+provsHoy+'</div><div class="sl">Proveedores hoy</div></div>';
 
   // Tabla auditorias
-  const faudSel=document.getElementById('filtroAuditorAdmin');
-  const fauds=[...faudSel.selectedOptions].map(o=>norm(o.value)).filter(v=>v!=='');
+  const fauds=getSelectedAuditores();
   let filtered=activas.filter(a=>{
     if (a.registrado!==fa) return false;
+    if (ffa&&(a.fecha_audit||'')!==ffa) return false;
     if (fm&&(a.marca||'')!==fm) return false;
     if (fp&&!norm(a.proveedor||'').includes(fp)) return false;
     if (fauds.length&&!fauds.includes(norm(a.auditor||''))) return false;
@@ -1479,11 +1529,13 @@ async function enviarConfirmaciones(){
   if (typeof emailjs === 'undefined'){toast('EmailJS no está cargado. Recarga la página.');return;}
   emailjs.init({ publicKey: EMAILJS_PUBLIC });
   const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
-  // Respetar filtro de proveedor activo
+  // Respetar filtros activos
   const fpFiltro=(document.getElementById('filtroProvAdmin')?.value||'').trim();
+  const ffaFiltro=(document.getElementById('filtroFechaAudit')?.value||'').trim();
   let activas=S.auditorias.filter(a=>a.estado!=='Cancelada'&&a.registrado===fa);
   if (fpFiltro) activas=activas.filter(a=>a.proveedor===fpFiltro);
-  if (!activas.length){toast('No hay auditorías'+(fpFiltro?' para '+fpFiltro:'')+' en esta fecha.');return;}
+  if (ffaFiltro) activas=activas.filter(a=>(a.fecha_audit||'')===ffaFiltro);
+  if (!activas.length){toast('No hay auditorías con los filtros seleccionados.');return;}
 
   // Agrupar por proveedor
   const byProv={};
@@ -1503,20 +1555,34 @@ async function enviarConfirmaciones(){
     if (!emailPrincipal){ toast('Sin correo: '+provNombre); continue; }
 
     const totalUnids=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
+    // Fechas de auditoría únicas para el encabezado del correo
+    const fechasAudit=[...new Set(auds.map(a=>a.fecha_audit).filter(Boolean))].sort();
+    const fechaDisplay=fechasAudit.join(', ')||fa;
+    // Verificar si hay PAQ no autorizados
+    const hayNoAuth=auds.some(a=>isNoAutorizado(a));
 
-    // Tabla HTML igual a "Mis auditorías"
-    const filas=auds.map((a,i)=>
-      '<tr style="background:'+(i%2===0?'#f9f9f9':'#ffffff')+'">'
-      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+(i+1)+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid #ddd"><strong>'+a.ref+'</strong></td>'
-      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+a.paq+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid #ddd">'+a.canal+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+(a.unidades||0)+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid #ddd">'+a.fecha_audit+'</td>'
-      +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center"><strong style="color:#2e7d32">'+(a.hora_admin||a.hora||'—')+'</strong></td>'
-      +'<td style="padding:6px 8px;border:1px solid #ddd">'+(a.auditor||'Por asignar')+'</td>'
-      +'</tr>'
-    ).join('');
+    // Tabla HTML con alertas de PAQ
+    const filas=auds.map((a,i)=>{
+      const noAuth=isNoAutorizado(a);
+      const rowBg=noAuth?'#fff8e1':(i%2===0?'#f9f9f9':'#ffffff');
+      const paqHtml=noAuth
+        ?'<strong style="color:#c8433a;border:1.5px solid #c8433a;border-radius:4px;padding:2px 5px">'+( a.paq||'')+'</strong>'
+        :(a.paq||'');
+      return '<tr style="background:'+rowBg+'">'
+        +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+(i+1)+'</td>'
+        +'<td style="padding:6px 8px;border:1px solid #ddd"><strong>'+a.ref+'</strong></td>'
+        +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+paqHtml+'</td>'
+        +'<td style="padding:6px 8px;border:1px solid #ddd">'+a.canal+'</td>'
+        +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+(a.unidades||0)+'</td>'
+        +'<td style="padding:6px 8px;border:1px solid #ddd">'+(a.fecha_audit||'')+'</td>'
+        +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center"><strong style="color:#2e7d32">'+(a.hora_admin||a.hora||'—')+'</strong></td>'
+        +'<td style="padding:6px 8px;border:1px solid #ddd">'+(a.auditor||'Por asignar')+'</td>'
+        +'</tr>';
+    }).join('');
+
+    const notaNoAuth=hayNoAuth
+      ?'<tr style="background:#fff8e1"><td colspan="8" style="padding:8px 10px;border:1px solid #ddd;color:#c8433a;font-weight:600;font-size:12px">⚠️ Los paquetes resaltados en rojo no corresponden al mes vigente y solo podrán ingresar con autorización del jefe de producción.</td></tr>'
+      :'';
 
     const resumen='<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px">'
       +'<thead><tr style="background:#1a1a2e;color:#fff">'
@@ -1529,17 +1595,20 @@ async function enviarConfirmaciones(){
       +'<th style="padding:8px;border:1px solid #333">Hora</th>'
       +'<th style="padding:8px;border:1px solid #333">Auditor</th>'
       +'</tr></thead><tbody>'+filas+'</tbody>'
-      +'<tfoot><tr style="background:#f0f0f0;font-weight:700">'
+      +'<tfoot>'
+      +'<tr style="background:#f0f0f0;font-weight:700">'
       +'<td colspan="4" style="padding:8px;border:1px solid #ddd;text-align:right">TOTAL UNIDADES:</td>'
       +'<td style="padding:8px;border:1px solid #ddd;text-align:center;color:#2e7d32">'+totalUnids.toLocaleString()+'</td>'
       +'<td colspan="3" style="border:1px solid #ddd"></td>'
-      +'</tr></tfoot></table>';
+      +'</tr>'
+      +notaNoAuth
+      +'</tfoot></table>';
 
     try {
       await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
         email: emailPrincipal,
         proveedor: provNombre,
-        fecha: fa,
+        fecha: fechaDisplay,
         resumen,
         total: totalUnids.toLocaleString()
       });
