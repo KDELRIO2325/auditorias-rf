@@ -49,6 +49,7 @@ body{font-family:var(--font);background:var(--surface);color:var(--ink);min-heig
 .badge-green{background:var(--green-lt);color:var(--green)}
 .badge-gray{background:#efefef;color:#666}
 .badge-blue{background:#eef4ff;color:#1a4eb5}
+.badge-red{background:#fde8e8;color:#c8433a;font-weight:700}
 /* TABLE */
 .tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1.5px solid var(--border)}
 table{width:100%;border-collapse:collapse;font-size:11px}
@@ -298,18 +299,18 @@ tbody td.center{text-align:center}
             <button class="refresh-btn" onclick="cargarDatosAdmin()" title="Recargar datos del servidor">🔄 Actualizar</button>
             <button class="refresh-btn" id="btnToggleHoraSol" onclick="toggleHoraSol()" title="Mostrar/ocultar hora de solicitud">👁 Hora solicitud</button>
             <button class="btn btn-green btn-sm" onclick="enviarConfirmaciones()">✉ Enviar confirmaciones</button>
-            <button class="btn btn-green btn-sm" onclick="exportarExcel()">⬇ Exportar Excel</button>
+            <button class="btn btn-green btn-sm" onclick="abrirModalExport()">⬇ Exportar Excel</button>
           </div>
         </div>
         <!-- Filtros -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px;align-items:end">
           <div class="form-row" style="margin-bottom:0">
             <label>Fecha registro</label>
-            <input type="date" id="filtroFechaAdmin" oninput="poblarSelectProveedores();renderAdminTablas()">
+            <input type="date" id="filtroFechaAdmin" oninput="poblarSelectProveedores();renderAdminTablas(true)">
           </div>
           <div class="form-row" style="margin-bottom:0">
             <label>Fecha auditoría</label>
-            <input type="date" id="filtroFechaAudit" oninput="renderAdminTablas()">
+            <input type="date" id="filtroFechaAudit" oninput="renderAdminTablas(true)">
           </div>
           <div class="form-row" style="margin-bottom:0">
             <label>Marca</label>
@@ -635,7 +636,8 @@ const S = {
   auditorias: [], proveedores: [], misAuds: [], auditores: [],
   selMatches: [], matchRows: [],
   selMatches2: [], matchRows2: [],
-  step1: null, step1_2: null
+  step1: null, step1_2: null,
+  _filtroPendientes: false
 };
 
 /* ══ HELPERS ═════════════════════════════════════════════ */
@@ -776,16 +778,15 @@ function tplConfirmacion(proveedor, fecha, resumen, total){
     <p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;line-height:1.7;">Tu solicitud de auditoría para el <strong>${fecha}</strong> ha sido confirmada. A continuación el resumen de referencias programadas:</p>
     <div style="overflow-x:auto;">${resumen}</div>
     <p style="margin:16px 0 0;font-size:13px;color:#4a4a6a;"><strong>Total unidades:</strong> ${total}</p>
-    <p style="margin:24px 0 0;font-size:12px;color:#9a9a9a;line-height:1.6;">Para consultas escríbenos a <a href="mailto:auditorias@gco.com.co" style="color:#c8433a;text-decoration:none;">auditorias@gco.com.co</a>.</p>
   </td></tr>
   <tr><td style="background:#f7f5f2;border-top:1px solid #e2ddd8;padding:16px 36px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#b0b0b0;">Correo automático — Sistema de Programación de Auditorías · GCO</p>
+    <p style="margin:0;font-size:11px;color:#b0b0b0;">Correo automático — No responder · Sistema de Programación de Auditorías · GCO</p>
   </td></tr>
 </table></td></tr></table></body></html>`;
 }
 
 function tplCredenciales(proveedor, usuario, password, esRecuperacion){
-  const titulo = esRecuperacion ? 'Recuperación de contraseña' : 'Bienvenido al sistema';
+  const titulo = esRecuperacion ? 'Recuperación de contraseña' : 'Bienvenido al portal de auditorías';
   const intro = esRecuperacion
     ? `Tu contraseña de acceso es la siguiente:`
     : `Tu cuenta ha sido creada exitosamente. Ya puedes ingresar al sistema y programar tus solicitudes de auditoría:`;
@@ -808,11 +809,10 @@ function tplCredenciales(proveedor, usuario, password, esRecuperacion){
         <p style="margin:0;font-size:14px;color:#1a1a2e;"><span style="color:#9a9a9a;display:block;font-size:11px;margin-bottom:2px;">Contraseña</span><strong style="font-family:monospace;font-size:16px;">${password}</strong></p>
       </td></tr>
     </table>
-    ${!esRecuperacion ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><td align="center"><a href="https://kdelrio2325.github.io/auditorias-rf/" style="display:inline-block;background:#c8433a;color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:13px 32px;border-radius:8px;">Ingresar al sistema →</a></td></tr></table>` : ''}
-    <p style="margin:0;font-size:12px;color:#9a9a9a;line-height:1.6;">Para consultas escríbenos a <a href="mailto:auditorias@gco.com.co" style="color:#c8433a;text-decoration:none;">auditorias@gco.com.co</a>. Guarda este correo con tus credenciales.</p>
+    ${!esRecuperacion ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;"><tr><td align="center"><a href="https://kdelrio2325.github.io/auditorias-rf/" style="display:inline-block;background:#c8433a;color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:13px 32px;border-radius:8px;">Ingresar al sistema →</a></td></tr></table>` : `<p style="margin:0 0 0;font-size:13px;color:#4a4a6a;line-height:1.7;">Una vez ingreses al portal, puedes cambiar tu contraseña.</p>`}
   </td></tr>
   <tr><td style="background:#f7f5f2;border-top:1px solid #e2ddd8;padding:16px 36px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#b0b0b0;">Correo automático — Sistema de Programación de Auditorías · GCO</p>
+    <p style="margin:0;font-size:11px;color:#b0b0b0;">Correo automático — No responder · Sistema de Programación de Auditorías · GCO</p>
   </td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -1186,7 +1186,7 @@ async function confirmarAuditoria(){
       canal:(row['CANAL']||'').toString().trim(),
       unidades:parseUnits(row['Ppto unids']),
       fecha_audit:fecha,hora,requerido_bod:(row['Requerido Bod']||'').toString().substring(0,10),
-      proceso_anterior:row['Proceso']||'',estado:'11 Auditoria',marca:S.step1?S.step1.marca:'',registrado,
+      proceso_anterior:row['Proceso']||'',estado:'Programada',marca:S.step1?S.step1.marca:'',registrado,
       no_autorizado:!isPriority(row)
     }));
     await sb('/rest/v1/auditorias',{method:'POST',body:inserts,prefer:'return=representation'});
@@ -1217,7 +1217,7 @@ async function confirmarAuditoria2(){
       canal:(row['CANAL']||'').toString().trim(),
       unidades:parseUnits(row['Ppto unids']),
       fecha_audit:fecha,hora,requerido_bod:(row['Requerido Bod']||'').toString().substring(0,10),
-      proceso_anterior:row['Proceso']||'',estado:'11 Auditoria',marca:S.step1_2?S.step1_2.marca:'',registrado
+      proceso_anterior:row['Proceso']||'',estado:'Programada',marca:S.step1_2?S.step1_2.marca:'',registrado
     }));
     await sb('/rest/v1/auditorias',{method:'POST',body:inserts,prefer:'return=representation'});
     const okEl=document.getElementById('adminConfirmOk');
@@ -1382,7 +1382,24 @@ function poblarSelectProveedores(){
   renderTablaAuditores();
 }
 
-function renderAdminTablas(){
+function filtrarHoy(){
+  S._filtroPendientes=false;
+  document.getElementById('filtroFechaAdmin').value=todayStr();
+  document.getElementById('filtroFechaAudit').value='';
+  document.getElementById('filtroMarca').value='';
+  document.getElementById('filtroProvAdmin').value='';
+  poblarSelectProveedores();renderAdminTablas();
+}
+function filtrarPendientes(){
+  S._filtroPendientes=true;
+  document.getElementById('filtroFechaAdmin').value='';
+  document.getElementById('filtroFechaAudit').value='';
+  document.getElementById('filtroMarca').value='';
+  document.getElementById('filtroProvAdmin').value='';
+  poblarSelectProveedores();renderAdminTablas();
+}
+function renderAdminTablas(desactivarPendientes){
+  if(desactivarPendientes) S._filtroPendientes=false;
   const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
   const ffa=document.getElementById('filtroFechaAudit')?.value||'';
   const fm=document.getElementById('filtroMarca')?.value||'';
@@ -1394,14 +1411,17 @@ function renderAdminTablas(){
   const hoySols=activas.filter(a=>a.registrado===hoy);
   const pendientes=activas.filter(a=>!a.auditor).length;
   const provsHoy=[...new Set(hoySols.map(a=>a.proveedor))].length;
+  const activeHoy=!S._filtroPendientes&&document.getElementById('filtroFechaAdmin')?.value===hoy&&!document.getElementById('filtroFechaAudit')?.value;
+  const activePend=S._filtroPendientes;
   document.getElementById('statsRow').innerHTML=
-    '<div class="stat-card"><div class="sv">'+hoySols.length+'</div><div class="sl">Hoy</div></div>'+
-    '<div class="stat-card"><div class="sv">'+pendientes+'</div><div class="sl">Pendientes por asignar</div></div>'+
+    '<div class="stat-card" onclick="filtrarHoy()" style="cursor:pointer;transition:box-shadow .15s'+(activeHoy?';box-shadow:0 0 0 2.5px var(--accent);background:var(--accent-lt)':'')+'" title="Ver solicitudes de hoy"><div class="sv">'+hoySols.length+'</div><div class="sl">Hoy</div></div>'+
+    '<div class="stat-card" onclick="filtrarPendientes()" style="cursor:pointer;transition:box-shadow .15s'+(activePend?';box-shadow:0 0 0 2.5px var(--accent);background:var(--accent-lt)':'')+'" title="Ver todos sin auditor asignado"><div class="sv">'+pendientes+'</div><div class="sl">Pendientes por asignar</div></div>'+
     '<div class="stat-card"><div class="sv">'+provsHoy+'</div><div class="sl">Proveedores hoy</div></div>';
 
   // Tabla auditorias
   const fauds=getSelectedAuditores();
   let filtered=activas.filter(a=>{
+    if(S._filtroPendientes) return !a.auditor; // solo sin auditor, sin restricción de fecha
     // Si hay filtro de fecha audit, busca en todos los registros sin importar cuándo se solicitó
     if (ffa){ if((a.fecha_audit||'')!==ffa) return false; }
     else { if(a.registrado!==fa) return false; }
@@ -1437,9 +1457,10 @@ function renderAdminTablas(){
       '<td class="center" style="color:var(--ink-soft);font-size:12px">'+(a.hora||'')+'</td>'+
       '<td class="center col-hora-sol" style="color:var(--ink-soft);font-size:12px">'+horaSol+'</td>'+
       '<td class="center">'+horaSelect(a.hora_admin||a.hora||'',a.id)+'</td>'+
-      '<td><span class="badge badge-green">'+(a.estado||'')+'</span></td>'+
+      '<td><span class="badge '+(a.estado==='11 Auditoria'?'badge-green':a.estado==='NO PROGRAMADA'?'badge-red':'badge-blue')+'">'+(a.estado||'')+'</span></td>'+
       '<td><select class="auditor-select" style="padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;min-width:100px" data-id="'+a.id+'" onchange="asignarAuditor(this)">'+
         '<option value="">— Asignar —</option>'+
+        '<option value="No disponible"'+(a.auditor==='No disponible'?' selected':'')+'>No disponible</option>'+
         S.auditores.map(au=>'<option '+(a.auditor===au.nombre?'selected':'')+'>'+au.nombre+'</option>').join('')+
       '</select></td>'+
       '<td class="center"><button class="del-btn" title="Eliminar" onclick="eliminarAud(\''+a.id+'\')">🗑</button></td>';
@@ -1513,10 +1534,13 @@ async function actualizarFechaAud(input,id){
 
 async function asignarAuditor(sel){
   const id=sel.dataset.id,val=sel.value;
+  const nuevoEstado=val==='No disponible'?'NO PROGRAMADA':val?'11 Auditoria':'Programada';
   try {
-    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{auditor:val}});
-    const a=S.auditorias.find(x=>x.id===id);if(a)a.auditor=val;
-    toast(val?'✓ Auditor: '+val:'Auditor removido',!!val);
+    await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{auditor:val,estado:nuevoEstado}});
+    const a=S.auditorias.find(x=>x.id===id);
+    if(a){a.auditor=val;a.estado=nuevoEstado;}
+    renderAdminTablas();
+    toast(val==='No disponible'?'⚠ No disponible — NO PROGRAMADA':val?'✓ Auditor: '+val:'Auditor removido',!!val);
   } catch(e){toast('Error al asignar auditor.');}
 }
 
@@ -1729,9 +1753,19 @@ function parsearHoja(wb,marca){
 }
 
 /* ══ EXPORT ══════════════════════════════════════════════ */
-function exportarExcel(){
-  const activas=S.auditorias.filter(a=>a.estado!=='Cancelada');
-  if (!activas.length){toast('No hay auditorías para exportar.');return;}
+function abrirModalExport(){
+  document.getElementById('expDesde').value='';
+  document.getElementById('expHasta').value='';
+  document.getElementById('modalExport').style.display='flex';
+}
+function ejecutarExport(){
+  const desde=document.getElementById('expDesde').value;
+  const hasta=document.getElementById('expHasta').value;
+  let activas=S.auditorias.filter(a=>a.estado!=='Cancelada');
+  if(desde) activas=activas.filter(a=>(a.registrado||'')>=desde);
+  if(hasta) activas=activas.filter(a=>(a.registrado||'')<=hasta);
+  document.getElementById('modalExport').style.display='none';
+  if (!activas.length){toast('No hay registros para ese rango de fechas.');return;}
   const rows=activas.map(a=>({
     'Marca':a.marca||'','Fecha programacion':a.fecha_audit,'Proveedor':a.proveedor,
     'REF':a.ref,'Color Pantone':a.color_pantone,'PAQ':a.paq,'Canal':a.canal,
@@ -1743,8 +1777,9 @@ function exportarExcel(){
   ws['!cols']=Object.keys(rows[0]).map(k=>({wch:Math.max(k.length,14)}));
   const wb2=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb2,ws,'Auditorias Programadas');
-  XLSX.writeFile(wb2,'Auditorias_'+todayStr()+'.xlsx');
-  toast('Exportado correctamente',true);
+  const sufijo=(desde&&hasta)?desde+'_al_'+hasta:(desde?'desde_'+desde:(hasta?'hasta_'+hasta:todayStr()));
+  XLSX.writeFile(wb2,'Auditorias_'+sufijo+'.xlsx');
+  toast('✓ Exportado: '+activas.length+' registros',true);
 }
 
 function descargarActualizado(){
@@ -1989,5 +2024,27 @@ document.addEventListener('keydown',e=>{
 
 init();
 </script>
+
+<!-- Modal Export Excel -->
+<div id="modalExport" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:28px 32px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-family:Georgia,serif;font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">Exportar a Excel</div>
+    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:20px">Selecciona el rango de fechas de registro a exportar. Deja en blanco para exportar todo.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div class="form-row" style="margin:0">
+        <label>Desde</label>
+        <input type="date" id="expDesde" style="width:100%">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Hasta</label>
+        <input type="date" id="expHasta" style="width:100%">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modalExport').style.display='none'">Cancelar</button>
+      <button class="btn btn-green btn-sm" onclick="ejecutarExport()">⬇ Exportar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
