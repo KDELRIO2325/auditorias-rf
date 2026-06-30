@@ -434,10 +434,13 @@ tbody td.center{text-align:center}
         <button class="btn btn-primary" onclick="registrarProveedor()">Crear cuenta</button>
       </div>
       <div class="card" style="padding:18px 14px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:12px">Proveedores registrados</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-weight:700;font-size:14px">Proveedores registrados</div>
+          <button class="btn btn-secondary btn-sm" onclick="toggleEmail2Col()" id="btnToggleEmail2" style="font-size:11px">👁 Email adicional</button>
+        </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Nombre</th><th>NIT</th><th>Usuario</th><th>Email</th><th>Creado</th><th>Solicitudes</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>#</th><th>Nombre</th><th>NIT</th><th>Usuario</th><th>Email principal</th><th class="col-email2" style="display:none">Email adicional</th><th>Creado</th><th>Solicitudes</th><th>Acciones</th></tr></thead>
             <tbody id="tblProveedores"></tbody>
           </table>
         </div>
@@ -1382,6 +1385,12 @@ function poblarSelectProveedores(){
   renderTablaAuditores();
 }
 
+function toggleEmail2Col(){
+  const btn=document.getElementById('btnToggleEmail2');
+  const visible=btn.dataset.visible==='1';
+  btn.dataset.visible=visible?'0':'1';
+  document.querySelectorAll('.col-email2').forEach(el=>el.style.display=visible?'none':'table-cell');
+}
 function filtrarHoy(){
   S._filtroPendientes=false;
   document.getElementById('filtroFechaAdmin').value=todayStr();
@@ -1491,8 +1500,11 @@ function renderAdminTablas(desactivarPendientes){
   S.proveedores.forEach((p,i)=>{
     const solCount=S.auditorias.filter(a=>a.proveedor===p.nombre&&a.estado!=='Cancelada').length;
     const tr=document.createElement('tr');
+    const email2Visible=document.getElementById('btnToggleEmail2')?.dataset.visible==='1';
     tr.innerHTML='<td>'+(i+1)+'</td><td>'+p.nombre+'</td><td>'+(p.nit||'—')+'</td><td>'+p.usuario+'</td>'+
-      '<td style="font-size:12px">'+(p.email||'—')+'</td><td style="white-space:nowrap">'+(p.creado||'—')+'</td>'+
+      '<td style="font-size:12px">'+(p.email||'—')+'</td>'+
+      '<td class="col-email2" style="font-size:12px;display:'+(email2Visible?'table-cell':'none')+'">'+(p.email2||'—')+'</td>'+
+      '<td style="white-space:nowrap">'+(p.creado||'—')+'</td>'+
       '<td style="text-align:center">'+solCount+'</td>'+
       '<td style="white-space:nowrap;display:flex;gap:6px">'+
         '<button class="btn btn-sm btn-secondary" onclick="abrirEditProv(\''+p.id+'\')">✏️</button>'+
@@ -1568,7 +1580,10 @@ async function registrarProveedor(){
     okEl.textContent='Cuenta creada para '+nombre+' (usuario: '+usuario+').';okEl.style.display='block';
     if(email){
       try{
-        await sendBrevo(email, nombre, 'Bienvenido al sistema de auditorías - '+nombre, tplCredenciales(nombre,usuario,pass,false));
+        const asunto='Bienvenido al portal de auditorías - '+nombre;
+        const html=tplCredenciales(nombre,usuario,pass,false);
+        await sendBrevo(email, nombre, asunto, html);
+        if(email2) await sendBrevo(email2, nombre, asunto, html);
       }catch(eEmail){console.warn('Email de bienvenida no enviado:',eEmail);}
     }
     ['pNombre','pNit','pUsuario','pPass','pEmail','pEmail2'].forEach(id=>document.getElementById(id).value='');
@@ -1641,8 +1656,8 @@ async function enviarConfirmaciones(){
   let enviados=0, errores=0;
   for (const [provNombre,auds] of Object.entries(byProv)){
     const prov=S.proveedores.find(p=>p.nombre===provNombre);
-    // Solo email principal — EmailJS Free no soporta múltiples destinatarios en un envío
     const emailPrincipal=prov?.email;
+    const emailOpcional=prov?.email2;
     if (!emailPrincipal){ toast('Sin correo: '+provNombre); continue; }
 
     const totalUnids=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
@@ -1696,9 +1711,10 @@ async function enviarConfirmaciones(){
       +'</tfoot></table>';
 
     try {
-      await sendBrevo(emailPrincipal, provNombre,
-        'Confirmación de auditoría — '+fechaDisplay,
-        tplConfirmacion(provNombre, fechaDisplay, resumen, totalUnids.toLocaleString()));
+      const asuntoConf='Confirmación de auditoría — '+fechaDisplay;
+      const htmlConf=tplConfirmacion(provNombre, fechaDisplay, resumen, totalUnids.toLocaleString());
+      await sendBrevo(emailPrincipal, provNombre, asuntoConf, htmlConf);
+      if(emailOpcional) await sendBrevo(emailOpcional, provNombre, asuntoConf, htmlConf);
       enviados++;
     } catch(e){ errores++; toast('Error enviando a '+provNombre+': '+(e.text||e.message)); }
   }
