@@ -869,7 +869,7 @@ async function doLogin(){
     // Intentar login como proveedor
     const rows=await sb('/rest/v1/proveedores?select=*&usuario=eq.'+encodeURIComponent(u)+'&pass=eq.'+encodeURIComponent(p));
     if (rows&&rows.length){
-      S.user=rows[0].nombre;S.role='proveedor';
+      S.user=rows[0].nombre;S.userLogin=rows[0].usuario;S.role='proveedor';
       document.getElementById('userLabel').textContent=rows[0].nombre;
       document.getElementById('headerButtons').style.display='flex';
       if (!S.data.Rifle.length||!S.data.Moft.length){
@@ -1189,7 +1189,7 @@ async function confirmarAuditoria(){
       canal:(row['CANAL']||'').toString().trim(),
       unidades:parseUnits(row['Ppto unids']),
       fecha_audit:fecha,hora,requerido_bod:(row['Requerido Bod']||'').toString().substring(0,10),
-      proceso_anterior:row['Proceso']||'',estado:'Programada',marca:S.step1?S.step1.marca:'',registrado,
+      proceso_anterior:row['Proceso']||'',estado:'Programada',marca:S.step1?S.step1.marca:'',registrado,proveedor:S.userLogin||S.user,
       no_autorizado:!isPriority(row)
     }));
     await sb('/rest/v1/auditorias',{method:'POST',body:inserts,prefer:'return=representation'});
@@ -1247,9 +1247,9 @@ function terminarRegistros(){showScreen('screenFin');}
 async function cargarMisAuds(){
   if (!S.user) return;
   try {
-    const auds=await sb('/rest/v1/auditorias?select=*&order=created_at.desc');
-    const uNorm=norm(S.user);
-    S.misAuds=(auds||[]).filter(a=>fuzzy(a.proveedor,uNorm)&&a.estado!=='Cancelada');
+    const filtProv=encodeURIComponent(S.userLogin||S.user);
+    const auds=await sb('/rest/v1/auditorias?select=*&proveedor=eq.'+filtProv+'&order=created_at.desc');
+    S.misAuds=(auds||[]).filter(a=>a.estado!=='Cancelada');
     // Set default filter to today
     const fi=document.getElementById('filtroFechaReg');
     if (fi&&!fi.value) fi.value=todayStr();
@@ -1341,9 +1341,14 @@ async function cargarDatosAdmin(){
 }
 
 function poblarSelectProveedores(){
-  // filtroProvAdmin: solo proveedores con auditorías en la fecha seleccionada
+  // filtroProvAdmin: respeta el filtro activo (fecha auditoría o fecha registro)
   const fa = document.getElementById('filtroFechaAdmin')?.value || todayStr();
-  const activas = S.auditorias.filter(a => a.estado !== 'Cancelada' && a.registrado === fa);
+  const ffa = document.getElementById('filtroFechaAudit')?.value || '';
+  const activas = S.auditorias.filter(a => {
+    if(a.estado==='Cancelada') return false;
+    if(ffa) return (a.fecha_audit||'')===ffa;
+    return a.registrado===fa;
+  });
   const provsEnFecha = [...new Set(activas.map(a => a.proveedor))].sort();
   const filtroEl = document.getElementById('filtroProvAdmin');
   if (filtroEl) {
@@ -1638,9 +1643,12 @@ async function enviarConfirmaciones(){
   // Respetar filtros activos
   const fpFiltro=(document.getElementById('filtroProvAdmin')?.value||'').trim();
   const ffaFiltro=(document.getElementById('filtroFechaAudit')?.value||'').trim();
-  let activas=S.auditorias.filter(a=>a.estado!=='Cancelada'&&a.registrado===fa);
-  if (fpFiltro) activas=activas.filter(a=>a.proveedor===fpFiltro);
-  if (ffaFiltro) activas=activas.filter(a=>(a.fecha_audit||'')===ffaFiltro);
+  let activas=S.auditorias.filter(a=>{
+    if(a.estado==='Cancelada') return false;
+    if(ffaFiltro) return (a.fecha_audit||'')===ffaFiltro; // si hay fecha auditoría, ignora fecha registro
+    return a.registrado===fa; // si no, filtra por fecha de registro
+  });
+  if(fpFiltro) activas=activas.filter(a=>a.proveedor===fpFiltro);
   if (!activas.length){toast('No hay auditorías con los filtros seleccionados.');return;}
 
   // Agrupar por proveedor
