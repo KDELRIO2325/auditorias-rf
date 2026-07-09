@@ -299,6 +299,7 @@ tbody td.center{text-align:center}
             <button class="refresh-btn" onclick="cargarDatosAdmin()" title="Recargar datos del servidor">🔄 Actualizar</button>
             <button class="refresh-btn" id="btnToggleHoraSol" onclick="toggleHoraSol()" title="Mostrar/ocultar hora de solicitud">👁 Hora solicitud</button>
             <button class="btn btn-green btn-sm" onclick="enviarConfirmaciones()">✉ Enviar confirmaciones</button>
+            <button class="btn btn-green btn-sm" onclick="enviarResumenAuditores()" title="Enviar resumen de auditorías a cada auditor asignado">📋 Enviar a auditores</button>
             <button class="btn btn-green btn-sm" onclick="abrirModalExport()">⬇ Exportar Excel</button>
           </div>
         </div>
@@ -1660,19 +1661,30 @@ async function eliminarProv(id,nombre){
   } catch(e){toast('Error al eliminar.');}
 }
 
-/* ══ ENVIAR CONFIRMACIONES (Brevo) ══════════════════════ */
-async function enviarConfirmaciones(){
+/* ══ FILTRO ACTIVO (mismo que renderAdminTablas) ════════ */
+function filtrarActivas(){
   const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
-  // Respetar filtros activos
   const fpFiltro=(document.getElementById('filtroProvAdmin')?.value||'').trim();
   const ffaFiltro=(document.getElementById('filtroFechaAudit')?.value||'').trim();
-  let activas=S.auditorias.filter(a=>{
+  const fm=(document.getElementById('filtroMarca')?.value||'').trim();
+  const fauds=getSelectedAuditores();
+  return S.auditorias.filter(a=>{
     if(a.estado==='Cancelada') return false;
     if(S._filtroPendientes) return !a.auditor;
-    if(ffaFiltro) return (a.fecha_audit||'')===ffaFiltro;
-    return a.registrado===fa;
+    if(ffaFiltro){ if((a.fecha_audit||'')!==ffaFiltro) return false; }
+    else { if(a.registrado!==fa) return false; }
+    if(fm&&(a.marca||'')!==fm) return false;
+    if(fpFiltro&&a.proveedor!==fpFiltro) return false;
+    if(fauds.length&&!fauds.includes(norm(a.auditor||''))) return false;
+    return true;
   });
-  if(fpFiltro) activas=activas.filter(a=>a.proveedor===fpFiltro);
+}
+
+/* ══ ENVIAR CONFIRMACIONES (Brevo) ══════════════════════ */
+async function enviarConfirmaciones(){
+  const activas=filtrarActivas();
+  const fpFiltro=(document.getElementById('filtroProvAdmin')?.value||'').trim();
+  const fauds=getSelectedAuditores();
   if (!activas.length){toast('No hay auditorías con los filtros seleccionados.');return;}
 
   // Agrupar por proveedor
@@ -1683,7 +1695,9 @@ async function enviarConfirmaciones(){
   });
 
   const numProvs=Object.keys(byProv).length;
-  if (!confirm('¿Enviar correo de confirmación a '+(fpFiltro||numProvs+' proveedor'+(numProvs!==1?'es':''))+'?')) return;
+  const descProv=fpFiltro?fpFiltro:(numProvs+' proveedor'+(numProvs!==1?'es':''));
+  const descAud=fauds.length?' — auditor: '+fauds.join(', '):'';
+  if (!confirm('¿Enviar correo de confirmación a '+descProv+descAud+'?')) return;
 
   let enviados=0, errores=0;
   for (const [provNombre,auds] of Object.entries(byProv)){
@@ -1752,20 +1766,47 @@ async function enviarConfirmaciones(){
   }
   if (enviados>0) toast('✉ '+enviados+' correo(s) enviado(s)',true);
   if (errores>0) toast('⚠️ '+errores+' error(es) al enviar');
+}
 
-  // Enviar resumen a cada auditor con sus auditorías asignadas
-  const audsConAuditor=activas.filter(a=>a.auditor&&a.auditor!=='No disponible');
+/* ══ ENVIAR RESUMEN A AUDITORES ═══════════════════════════ */
+async function enviarResumenAuditores(){
+  // Aplica filtros de fecha/pendientes y auditor, pero NO proveedor ni marca
+  // para que cada auditor reciba su programa completo
+  const fa=document.getElementById('filtroFechaAdmin')?.value||todayStr();
+  const ffaFiltro=(document.getElementById('filtroFechaAudit')?.value||'').trim();
+  const fauds=getSelectedAuditores();
+
+  const base=S.auditorias.filter(a=>{
+    if(a.estado==='Cancelada'||!a.auditor||a.auditor==='No disponible') return false;
+    if(S._filtroPendientes) return false; // pendientes no tienen auditor
+    if(ffaFiltro){ if((a.fecha_audit||'')!==ffaFiltro) return false; }
+    else { if(a.registrado!==fa) return false; }
+    if(fauds.length&&!fauds.includes(norm(a.auditor||''))) return false;
+    return true;
+  });
+
+  if(!base.length){toast('No hay auditorías con auditor asignado en los filtros actuales.');return;}
+
   const byAuditor={};
-  audsConAuditor.forEach(a=>{
+  base.forEach(a=>{
     if(!byAuditor[a.auditor]) byAuditor[a.auditor]=[];
     byAuditor[a.auditor].push(a);
   });
+
+  const numAuds=Object.keys(byAuditor).length;
+  const descAud=fauds.length?fauds.join(', '):(numAuds+' auditor'+(numAuds!==1?'es':''));
+  if(!confirm('¿Enviar resumen de auditorías a '+descAud+'?')) return;
+
+  let enviados=0, errores=0;
   for(const [audNombre, auds] of Object.entries(byAuditor)){
     const audObj=S.auditores.find(x=>x.nombre===audNombre);
-    if(!audObj?.email) continue;
+    if(!audObj?.email){ toast('Sin correo registrado: '+audNombre); continue; }
     const totalAud=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
     const fechas=[...new Set(auds.map(a=>a.fecha_audit).filter(Boolean))].sort().join(', ');
-    const filasAud=auds.sort((a,b)=>(a.hora_admin||a.hora||'').localeCompare(b.hora_admin||b.hora||'')).map((a,i)=>
+    const filasAud=auds.sort((a,b)=>{
+      const cf=(a.fecha_audit||'').localeCompare(b.fecha_audit||'');if(cf)return cf;
+      return (a.hora_admin||a.hora||'').localeCompare(b.hora_admin||b.hora||'');
+    }).map((a,i)=>
       '<tr style="background:'+(i%2===0?'#f9f9f9':'#fff')+'">'
       +'<td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+(i+1)+'</td>'
       +'<td style="padding:6px 8px;border:1px solid #ddd">'+a.proveedor+'</td>'
@@ -1797,8 +1838,11 @@ async function enviarConfirmaciones(){
       await sendBrevo(audObj.email, audNombre,
         'Tus auditorías programadas — '+fechas,
         tplResumenAuditor(audNombre, fechas, resumenAud, totalAud.toLocaleString()));
-    }catch(e){ console.warn('Error enviando a auditor '+audNombre+':',e); }
+      enviados++;
+    }catch(e){ errores++; console.warn('Error enviando a auditor '+audNombre+':',e); }
   }
+  if(enviados>0) toast('✉ Resumen enviado a '+enviados+' auditor'+(enviados!==1?'es':''),true);
+  if(errores>0) toast('⚠️ '+errores+' error(es) al enviar');
 }
 
 /* ══ ARCHIVO BASE ════════════════════════════════════════ */
