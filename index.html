@@ -1701,10 +1701,11 @@ async function enviarConfirmaciones(){
 
   let enviados=0, errores=0;
   for (const [provNombre,auds] of Object.entries(byProv)){
-    const prov=S.proveedores.find(p=>p.nombre===provNombre);
+    const prov=S.proveedores.find(p=>p.usuario===provNombre)||S.proveedores.find(p=>p.nombre===provNombre);
     const emailPrincipal=prov?.email;
     const emailOpcional=prov?.email2;
-    if (!emailPrincipal){ toast('Sin correo: '+provNombre); continue; }
+    const nombreDisplay=prov?.nombre||provNombre; // nombre completo para el correo
+    if (!emailPrincipal){ toast('Sin correo: '+nombreDisplay); continue; }
 
     const totalUnids=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
     // Fechas de auditoría únicas para el encabezado del correo
@@ -1758,9 +1759,9 @@ async function enviarConfirmaciones(){
 
     try {
       const asuntoConf='Confirmación de auditoría — '+fechaDisplay;
-      const htmlConf=tplConfirmacion(provNombre, fechaDisplay, resumen, totalUnids.toLocaleString());
-      await sendBrevo(emailPrincipal, provNombre, asuntoConf, htmlConf);
-      if(emailOpcional) await sendBrevo(emailOpcional, provNombre, asuntoConf, htmlConf);
+      const htmlConf=tplConfirmacion(nombreDisplay, fechaDisplay, resumen, totalUnids.toLocaleString());
+      await sendBrevo(emailPrincipal, nombreDisplay, asuntoConf, htmlConf);
+      if(emailOpcional) await sendBrevo(emailOpcional, nombreDisplay, asuntoConf, htmlConf);
       enviados++;
     } catch(e){ errores++; toast('Error enviando a '+provNombre+': '+(e.text||e.message)); }
   }
