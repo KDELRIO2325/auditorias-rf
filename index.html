@@ -286,6 +286,8 @@ tbody td.center{text-align:center}
       <button class="tab-btn" onclick="switchTab('tabProgramar',this)">Programar auditoría</button>
       <button class="tab-btn" onclick="switchTab('tabProveedores',this)">Proveedores</button>
       <button class="tab-btn" onclick="switchTab('tabAuditores',this)">Auditores</button>
+      <button class="tab-btn" onclick="switchTab('tabDefectos',this)">Defectos</button>
+      <button class="tab-btn" onclick="switchTab('tabCorreos',this)">Correos internos</button>
       <button class="tab-btn" onclick="switchTab('tabArchivo',this)">Archivo base</button>
     </div>
 
@@ -430,6 +432,7 @@ tbody td.center{text-align:center}
           <div class="form-row"><label>Correo principal</label><input type="email" id="pEmail" placeholder="proveedor@empresa.com"></div>
           <div class="form-row"><label>Correo adicional <span style="font-weight:400;text-transform:none;font-size:10px">(opcional)</span></label><input type="email" id="pEmail2" placeholder="copia@empresa.com"></div>
         </div>
+        <div class="form-row"><label>Correos auditorías <span style="font-weight:400;text-transform:none;font-size:10px">(opcional, varios separados por coma)</span></label><input type="text" id="pCorreosAud" placeholder="calidad@proveedor.com, comercial@proveedor.com"></div>
         <div id="regProvError" class="alert alert-error" style="display:none"></div>
         <div id="regProvOk" class="alert alert-success" style="display:none"></div>
         <button class="btn btn-primary" onclick="registrarProveedor()">Crear cuenta</button>
@@ -438,10 +441,11 @@ tbody td.center{text-align:center}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-weight:700;font-size:14px">Proveedores registrados</div>
           <button class="btn btn-secondary btn-sm" onclick="toggleEmail2Col()" id="btnToggleEmail2" style="font-size:11px">👁 Email adicional</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleCorreosAudCol()" id="btnToggleCorreosAud" style="font-size:11px">👁 Correos auditorías</button>
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Nombre</th><th>NIT</th><th>Usuario</th><th>Email principal</th><th class="col-email2" style="display:none">Email adicional</th><th>Creado</th><th>Solicitudes</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>#</th><th>Nombre</th><th>NIT</th><th>Usuario</th><th>Email principal</th><th class="col-email2" style="display:none">Email adicional</th><th class="col-correosaud" style="display:none">Correos auditorías</th><th>Creado</th><th>Solicitudes</th><th>Acciones</th></tr></thead>
             <tbody id="tblProveedores"></tbody>
           </table>
         </div>
@@ -475,6 +479,84 @@ tbody td.center{text-align:center}
           </table>
         </div>
         <p id="emptyAuditorMsg" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay auditores registrados.</p>
+      </div>
+    </div>
+
+    <!-- TAB: Defectos (biblioteca clasificada por categoria para registro de auditoria) -->
+    <div class="tab-panel" id="tabDefectos">
+      <div class="card">
+        <div class="card-title">Registrar defecto</div>
+        <div class="card-sub">Biblioteca de defectos clasificada por categoria. Al elegir la categoria se autogenera el Cod consecutivo (ej. Telas=01 -&gt; 011, 012...; Confeccion=02 -&gt; 021, 022...). El criterio (Critico/Mayor/Menor) define el AQL con el que se evalua.</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Categoria</label>
+            <select id="dCategoria" onchange="actualizarCodPreview()">
+              <option value="">Selecciona...</option>
+              <option value="Telas">01 - Telas</option>
+              <option value="Confección">02 - Confección</option>
+              <option value="Medidas">03 - Medidas</option>
+              <option value="Acabados">04 - Acabados</option>
+              <option value="Estampados">05 - Estampados</option>
+              <option value="Bordados">06 - Bordados</option>
+              <option value="Lavandería">07 - Lavandería</option>
+              <option value="Empaque">08 - Empaque</option>
+              <option value="Etiquetas">09 - Etiquetas</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Cod <span style="font-weight:400;text-transform:none;font-size:10px">(automático)</span></label><input type="text" id="dCodigo" readonly style="background:var(--surface);font-weight:700"></div>
+        </div>
+        <div class="form-row"><label>Defecto</label><input type="text" id="dNombre" placeholder="Ej: Hueco o rotura en la tela"></div>
+        <div class="form-row">
+          <label>Criterio</label>
+          <select id="dCriterio">
+            <option value="CRITICO">Crítico (AQL 0%)</option>
+            <option value="MAYOR" selected>Mayor (AQL 1%)</option>
+            <option value="MENOR">Menor (AQL 2.5%)</option>
+          </select>
+        </div>
+        <div id="regDefectoError" class="alert alert-error" style="display:none"></div>
+        <div id="regDefectoOk" class="alert alert-success" style="display:none"></div>
+        <button class="btn btn-primary" id="btnGuardarDefecto" onclick="guardarDefecto()">Agregar defecto</button>
+      </div>
+      <div class="card" style="padding:18px 14px">
+        <div class="flex-between" style="margin-bottom:12px">
+          <div style="font-weight:700;font-size:14px">Defectos registrados</div>
+          <select id="fDefectoCategoria" onchange="renderTablaDefectos()" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)">
+            <option value="">Todas las categorías</option>
+            <option value="Telas">01 - Telas</option>
+            <option value="Confección">02 - Confección</option>
+            <option value="Medidas">03 - Medidas</option>
+            <option value="Acabados">04 - Acabados</option>
+            <option value="Estampados">05 - Estampados</option>
+            <option value="Bordados">06 - Bordados</option>
+            <option value="Lavandería">07 - Lavandería</option>
+            <option value="Empaque">08 - Empaque</option>
+            <option value="Etiquetas">09 - Etiquetas</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Cod</th><th>Categoría</th><th>Defecto</th><th>Criterio</th><th class="center">Acciones</th></tr></thead>
+            <tbody id="tblDefectos"></tbody>
+          </table>
+        </div>
+        <p id="emptyDefectoMsg" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay defectos registrados.</p>
+      </div>
+    </div>
+
+    <!-- TAB: Correos internos (equipo Rifle/Moft para notificacion automatica de auditorias) -->
+    <div class="tab-panel" id="tabCorreos">
+      <div class="card">
+        <div class="card-title">Correos internos por grupo</div>
+        <div class="card-sub">Estos correos se notifican automáticamente cuando el auditor guarda un registro de auditoría y marca el grupo correspondiente. Varios correos por grupo, separados por coma.</div>
+        <div class="form-row"><label>Producción</label><input type="text" id="grpProduccion" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
+        <div class="form-row"><label>Diseño Rifle</label><input type="text" id="grpDisenoRifle" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
+        <div class="form-row"><label>Diseño Moft</label><input type="text" id="grpDisenoMoft" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
+        <div class="form-row"><label>Planeación Rifle</label><input type="text" id="grpPlaneacionRifle" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
+        <div class="form-row"><label>Planeación Moft</label><input type="text" id="grpPlaneacionMoft" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
+        <div id="grpCorreoError" class="alert alert-error" style="display:none"></div>
+        <div id="grpCorreoOk" class="alert alert-success" style="display:none"></div>
+        <button class="btn btn-primary" onclick="guardarGruposCorreo()">Guardar correos</button>
       </div>
     </div>
 
@@ -530,7 +612,7 @@ tbody td.center{text-align:center}
             <tr>
               <th>#</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Pantone</th>
               <th>PAQ</th><th>Canal</th><th>Unidades</th><th>Fecha audit.</th>
-              <th class="center">Hora confirmada</th><th>Estado</th>
+              <th class="center">Hora confirmada</th><th>Estado</th><th class="center">Registro</th>
             </tr>
           </thead>
           <tbody id="tblAuditorBody"></tbody>
@@ -603,6 +685,7 @@ tbody td.center{text-align:center}
       <div class="form-row"><label>Correo principal</label><input type="email" id="editEmail"></div>
       <div class="form-row"><label>Correo adicional</label><input type="email" id="editEmail2"></div>
     </div>
+    <div class="form-row"><label>Correos auditorías <span style="font-weight:400;font-size:10px">(varios separados por coma)</span></label><input type="text" id="editCorreosAud"></div>
     <div id="editProvError" class="alert alert-error" style="display:none"></div>
     <div style="display:flex;gap:10px;margin-top:8px">
       <button class="btn btn-secondary" onclick="closeModal('modalEditProv')">Cancelar</button>
@@ -641,7 +724,11 @@ const S = {
   selMatches: [], matchRows: [],
   selMatches2: [], matchRows2: [],
   step1: null, step1_2: null,
-  _filtroPendientes: false
+  _filtroPendientes: false,
+  defectos: [],
+  gruposCorreo: [],
+  registroActual: null, /* auditoría(s) en edición dentro del modal de registro */
+  reporteActual: null   /* registro en visualización dentro del modal de reporte */
 };
 
 /* ══ HELPERS ═════════════════════════════════════════════ */
@@ -887,6 +974,14 @@ async function doLogin(){
       btn.disabled=false;btn.textContent='Entrar';
       showScreen('screenAuditor');
       cargarAudsAuditor();
+      cargarDefectos();
+      if (!S.data.Rifle.length||!S.data.Moft.length){
+        const archivos=await sb('/rest/v1/archivo_base?select=id,datos');
+        if (archivos) archivos.forEach(r=>{
+          if (r.id===1&&r.datos) S.data.Rifle=r.datos;
+          if (r.id===2&&r.datos) S.data.Moft=r.datos;
+        });
+      }
       return;
     }
     // Intentar login como proveedor
@@ -1299,7 +1394,8 @@ function renderMisAuds(){
     const audCell=a.auditor?'<span class="badge badge-green">'+a.auditor+'</span>':'—';
     const marcaBadge=a.marca==='Moft'?'<span class="badge badge-blue">Moft</span>':'<span class="badge badge-gray">Rifle</span>';
     const puedeEliminar=!a.auditor&&new Date().getHours()<15;
-    const accion=puedeEliminar?'<button class="del-btn" title="Eliminar" onclick="eliminarMiAud(\''+a.id+'\',\''+a.ref+'\')">🗑</button>':'—';
+    const btnReporte=a.resultado_auditoria?'<button class="btn btn-secondary btn-sm" onclick="abrirReporte(\''+a.id+'\')" title="Ver reporte">📄</button>':'';
+    const accion=(puedeEliminar?'<button class="del-btn" title="Eliminar" onclick="eliminarMiAud(\''+a.id+'\',\''+a.ref+'\')">🗑</button>':'')+btnReporte||'—';
     const noAuth=isNoAutorizado(a);
     if (noAuth) hayNoAutorizados=true;
     // PAQ: recuadro rojo si no autorizado, igual que admin
@@ -1313,7 +1409,9 @@ function renderMisAuds(){
       '<td style="text-align:center">'+(a.unidades||'')+'</td>'+
       '<td style="white-space:nowrap">'+(a.fecha_audit||'')+'</td>'+
       '<td class="center col-hora-prov">'+(a.hora||'')+'</td><td class="center">'+horaConf+'</td>'+
-      '<td><span class="badge badge-blue">Programada</span></td>'+
+      '<td><span class="badge badge-blue">Programada</span>'+
+      (a.resultado_auditoria?'<br><span class="badge '+(a.resultado_auditoria==='Aprobado'?'badge-green':'badge-red')+'" style="margin-top:4px">'+a.resultado_auditoria+'</span>':'')+
+      '</td>'+
       '<td>'+audCell+'</td><td class="center">'+accion+'</td>';
     tbody.appendChild(tr);
   });
@@ -1420,6 +1518,12 @@ function toggleEmail2Col(){
   btn.dataset.visible=visible?'0':'1';
   document.querySelectorAll('.col-email2').forEach(el=>el.style.display=visible?'none':'table-cell');
 }
+function toggleCorreosAudCol(){
+  const btn=document.getElementById('btnToggleCorreosAud');
+  const visible=btn.dataset.visible==='1';
+  btn.dataset.visible=visible?'0':'1';
+  document.querySelectorAll('.col-correosaud').forEach(el=>el.style.display=visible?'none':'table-cell');
+}
 function filtrarHoy(){
   S._filtroPendientes=false;
   document.getElementById('filtroFechaAdmin').value=todayStr();
@@ -1495,13 +1599,17 @@ function renderAdminTablas(desactivarPendientes){
       '<td class="center" style="color:var(--ink-soft);font-size:12px">'+(a.hora||'')+'</td>'+
       '<td class="center col-hora-sol" style="color:var(--ink-soft);font-size:12px">'+horaSol+'</td>'+
       '<td class="center">'+horaSelect(a.hora_admin||a.hora||'',a.id)+'</td>'+
-      '<td><span class="badge '+(a.estado==='11 Auditoria'?'badge-green':a.estado==='NO PROGRAMADA'?'badge-red':'badge-blue')+'">'+(a.estado||'')+'</span></td>'+
+      '<td><span class="badge '+(a.estado==='11 Auditoria'?'badge-green':a.estado==='NO PROGRAMADA'?'badge-red':'badge-blue')+'">'+(a.estado||'')+'</span>'+
+        (a.resultado_auditoria?'<br><span class="badge '+(a.resultado_auditoria==='Aprobado'?'badge-green':'badge-red')+'" style="margin-top:4px">'+a.resultado_auditoria+'</span>':'')+
+      '</td>'+
       '<td><select class="auditor-select" style="padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;min-width:100px" data-id="'+a.id+'" onchange="asignarAuditor(this)">'+
         '<option value="">— Asignar —</option>'+
         '<option value="No disponible"'+(a.auditor==='No disponible'?' selected':'')+'>No disponible</option>'+
         S.auditores.map(au=>'<option '+(a.auditor===au.nombre?'selected':'')+'>'+au.nombre+'</option>').join('')+
       '</select></td>'+
-      '<td class="center"><button class="del-btn" title="Eliminar" onclick="eliminarAud(\''+a.id+'\')">🗑</button></td>';
+      '<td class="center" style="white-space:nowrap">'+
+        (a.resultado_auditoria?'<button class="btn btn-secondary btn-sm" onclick="abrirReporte(\''+a.id+'\')" title="Ver reporte" style="margin-right:4px">📄</button>':'')+
+        '<button class="del-btn" title="Eliminar" onclick="eliminarAud(\''+a.id+'\')">🗑</button></td>';
     tbody.appendChild(tr);
   });
   // Total unidades + nota no autorizados
@@ -1530,9 +1638,11 @@ function renderAdminTablas(desactivarPendientes){
     const solCount=S.auditorias.filter(a=>a.proveedor===p.nombre&&a.estado!=='Cancelada').length;
     const tr=document.createElement('tr');
     const email2Visible=document.getElementById('btnToggleEmail2')?.dataset.visible==='1';
+    const correosAudVisible=document.getElementById('btnToggleCorreosAud')?.dataset.visible==='1';
     tr.innerHTML='<td>'+(i+1)+'</td><td>'+p.nombre+'</td><td>'+(p.nit||'—')+'</td><td>'+p.usuario+'</td>'+
       '<td style="font-size:12px">'+(p.email||'—')+'</td>'+
       '<td class="col-email2" style="font-size:12px;display:'+(email2Visible?'table-cell':'none')+'">'+(p.email2||'—')+'</td>'+
+      '<td class="col-correosaud" style="font-size:12px;display:'+(correosAudVisible?'table-cell':'none')+'">'+(p.correos_auditoria||'—')+'</td>'+
       '<td style="white-space:nowrap">'+(p.creado||'—')+'</td>'+
       '<td style="text-align:center">'+solCount+'</td>'+
       '<td style="white-space:nowrap;display:flex;gap:6px">'+
@@ -1600,12 +1710,13 @@ async function registrarProveedor(){
   const pass=document.getElementById('pPass').value;
   const email=document.getElementById('pEmail').value.trim();
   const email2=document.getElementById('pEmail2').value.trim();
+  const correosAud=document.getElementById('pCorreosAud').value.trim();
   const errEl=document.getElementById('regProvError'),okEl=document.getElementById('regProvOk');
   errEl.style.display='none';okEl.style.display='none';
   if (!nombre||!nit||!usuario||!pass){errEl.textContent='Completa los campos obligatorios.';errEl.style.display='block';return;}
   if (pass.length<6){errEl.textContent='Contraseña mínimo 6 caracteres.';errEl.style.display='block';return;}
   try {
-    await sb('/rest/v1/proveedores',{method:'POST',body:{nombre,nit,usuario,pass,email,email2,creado:todayStr()},prefer:'return=representation'});
+    await sb('/rest/v1/proveedores',{method:'POST',body:{nombre,nit,usuario,pass,email,email2,correos_auditoria:correosAud,creado:todayStr()},prefer:'return=representation'});
     okEl.textContent='Cuenta creada para '+nombre+' (usuario: '+usuario+').';okEl.style.display='block';
     if(email){
       try{
@@ -1615,7 +1726,7 @@ async function registrarProveedor(){
         if(email2) await sendBrevo(email2, nombre, asunto, html);
       }catch(eEmail){console.warn('Email de bienvenida no enviado:',eEmail);}
     }
-    ['pNombre','pNit','pUsuario','pPass','pEmail','pEmail2'].forEach(id=>document.getElementById(id).value='');
+    ['pNombre','pNit','pUsuario','pPass','pEmail','pEmail2','pCorreosAud'].forEach(id=>document.getElementById(id).value='');
     await cargarDatosAdmin();
   } catch(e){
     errEl.textContent=e.message.includes('unique')?'Ese usuario ya existe.':'Error: '+e.message;errEl.style.display='block';
@@ -1631,6 +1742,7 @@ function abrirEditProv(id){
   document.getElementById('editPass').value='';
   document.getElementById('editEmail').value=p.email||'';
   document.getElementById('editEmail2').value=p.email2||'';
+  document.getElementById('editCorreosAud').value=p.correos_auditoria||'';
   document.getElementById('editProvError').style.display='none';
   document.getElementById('modalEditProv').style.display='flex';
 }
@@ -1643,9 +1755,10 @@ async function guardarEditProv(){
   const pass=document.getElementById('editPass').value;
   const email=document.getElementById('editEmail').value.trim();
   const email2=document.getElementById('editEmail2').value.trim();
+  const correosAud=document.getElementById('editCorreosAud').value.trim();
   const errEl=document.getElementById('editProvError');errEl.style.display='none';
   if (!nombre||!nit||!usuario){errEl.textContent='Completa nombre, NIT y usuario.';errEl.style.display='block';return;}
-  const body={nombre,nit,usuario,email,email2};
+  const body={nombre,nit,usuario,email,email2,correos_auditoria:correosAud};
   if (pass){if(pass.length<6){errEl.textContent='Mínimo 6 caracteres.';errEl.style.display='block';return;}body.pass=pass;}
   try {
     await sb('/rest/v1/proveedores?id=eq.'+id,{method:'PATCH',body});
@@ -1879,7 +1992,7 @@ function parsearHoja(wb,marca){
   const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd'});
   const headerRow=1; // Ambas marcas: headers en fila 1
   const headers=raw[headerRow]||[];
-  const keep=['PROVEEDOR','REF','Paq','CANAL','Proceso','Requerido Bod','Ppto unids','Color Pantone','NOM COLOR'];
+  const keep=['PROVEEDOR','REF','Paq','CANAL','Proceso','Requerido Bod','Ppto unids','Color Pantone','NOM COLOR','# OC','PREDISTRIBUIDO'];
   const idx={};
   keep.forEach(k=>{const i=headers.findIndex(h=>(h||'').toString().trim()===k);if(i>=0)idx[k]=i;});
   const rows=[];
@@ -1898,7 +2011,7 @@ function abrirModalExport(){
   document.getElementById('expHasta').value='';
   document.getElementById('modalExport').style.display='flex';
 }
-function ejecutarExport(){
+async function ejecutarExport(){
   const desde=document.getElementById('expDesde').value;
   const hasta=document.getElementById('expHasta').value;
   let activas=S.auditorias.filter(a=>a.estado!=='Cancelada');
@@ -1906,17 +2019,54 @@ function ejecutarExport(){
   if(hasta) activas=activas.filter(a=>(a.registrado||'')<=hasta);
   document.getElementById('modalExport').style.display='none';
   if (!activas.length){toast('No hay registros para ese rango de fechas.');return;}
-  const rows=activas.map(a=>({
-    'Marca':a.marca||'','Fecha programacion':a.fecha_audit,'Proveedor':a.proveedor,
-    'REF':a.ref,'Color Pantone':a.color_pantone,'PAQ':a.paq,'Canal':a.canal,
-    'Unidades':a.unidades,'Hora sugerida':a.hora,'Hora confirmada':a.hora_admin||'',
-    'Requerido Bod':a.requerido_bod,'Proceso anterior':a.proceso_anterior,
-    'Estado':a.estado,'Registrado':a.registrado,'Auditor':a.auditor||''
-  }));
+  let registros=[];
+  try{ registros=await sb('/rest/v1/auditoria_registro?select=*'); }catch(e){}
+  const mapaRegistro={};
+  (registros||[]).forEach(r=>{ (r.auditoria_ids||[]).forEach(id=>{ mapaRegistro[id]=r; }); });
+  function fmtFechaHora(iso){
+    if(!iso) return '';
+    try{
+      const d=new Date(iso);
+      return d.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
+    }catch(e){ return ''; }
+  }
+  function duracionMin(inicioIso,finIso){
+    if(!inicioIso||!finIso) return '';
+    try{
+      const mins=Math.round((new Date(finIso)-new Date(inicioIso))/60000);
+      return mins>=0?mins:'';
+    }catch(e){ return ''; }
+  }
+  const rows=activas.map(a=>{
+    const r=mapaRegistro[a.id];
+    const hallazgosTxt=(r&&r.hallazgos&&r.hallazgos.length)
+      ?r.hallazgos.map(h=>h.defecto_nombre+' ('+h.criterio+') x'+h.cantidad).join('; ')
+      :'';
+    return {
+      'Marca':a.marca||'','Fecha programacion':a.fecha_audit,'Proveedor':a.proveedor,
+      'REF':a.ref,'Color Pantone':a.color_pantone,'PAQ':a.paq,'Canal':a.canal,
+      'Unidades':a.unidades,'Hora sugerida':a.hora,'Hora confirmada':a.hora_admin||'',
+      'Requerido Bod':a.requerido_bod,'Proceso anterior':a.proceso_anterior,
+      'Estado':a.estado,'Registrado':a.registrado,'Auditor':a.auditor||'',
+      'OC':r?(r.oc_om||''):'','Predistribuido':r?(r.predistribuido||''):'',
+      'Nivel inspeccion':r?(r.nivel_inspeccion||''):'','AQL Mayor':r?(r.aql_mayor||''):'','AQL Menor':r?(r.aql_menor||''):'',
+      'Letra codigo':r?(r.letra_codigo||''):'','Tamano muestra':r?(r.tamano_muestra||''):'','Unds auditadas':r?(r.unds_auditadas||''):'',
+      'Unidades defectuosas':r?(r.unidades_defectuosas||''):'','Hallazgos':hallazgosTxt,
+      'Insumos':r?(r.insumos||''):'','Estampado':r?(r.estampado||''):'','Lavanderia':r?(r.lavanderia||''):'',
+      'Bordado':r?(r.bordado||''):'','Etiqueta':r?(r.etiqueta||''):'','PVP':r?(r.pvp||''):'',
+      'Observaciones registro':r?(r.observaciones||''):'',
+      'Resultado auditoria':r?(r.estado||''):'',
+      'Ajustado manualmente':(r&&r.ajustado_manualmente)?'Si':'',
+      'Ajustado por':r?(r.ajustado_por||''):'','Motivo ajuste':r?(r.ajustado_motivo||''):'',
+      'Inicio registro':r?fmtFechaHora(r.inicio_registro):'',
+      'Registro guardado':r?fmtFechaHora(r.creado_en):'',
+      'Duracion registro (min)':r?duracionMin(r.inicio_registro,r.creado_en):''
+    };
+  });
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=Object.keys(rows[0]).map(k=>({wch:Math.max(k.length,14)}));
   const wb2=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb2,ws,'Auditorias Programadas');
+  XLSX.utils.book_append_sheet(wb2,ws,'Auditorias completo');
   const sufijo=(desde&&hasta)?desde+'_al_'+hasta:(desde?'desde_'+desde:(hasta?'hasta_'+hasta:todayStr()));
   XLSX.writeFile(wb2,'Auditorias_'+sufijo+'.xlsx');
   toast('✓ Exportado: '+activas.length+' registros',true);
@@ -2096,6 +2246,8 @@ function switchTab(panelId,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(panelId).classList.add('active');btn.classList.add('active');
   if (['tabRegistros','tabProveedores','tabProgramar','tabAuditores'].includes(panelId)) cargarDatosAdmin();
+  if (panelId==='tabDefectos') cargarDefectos();
+  if (panelId==='tabCorreos') cargarGruposCorreo();
 }
 
 /* ══ HORA SOLICITUD ══════════════════════════════════════ */
@@ -2149,6 +2301,13 @@ function renderAudsAuditor(){
   document.getElementById('auditorEmpty').style.display=auds.length?'none':'block';
   auds.forEach((a,i)=>{
     const marcaBadge=a.marca==='Moft'?'<span class="badge badge-blue">Moft</span>':'<span class="badge badge-gray">Rifle</span>';
+    const tieneRegistro=!!a.resultado_auditoria;
+    const estadoBadge=tieneRegistro
+      ?'<span class="badge '+(a.resultado_auditoria==='Aprobado'?'badge-green':'badge-red')+'">'+a.resultado_auditoria+'</span>'
+      :'<span class="badge badge-green">'+(a.estado||'')+'</span>';
+    const accionBtn=tieneRegistro
+      ?'<button class="btn btn-secondary btn-sm" onclick="abrirReporte(\''+a.id+'\')">Ver registro</button>'
+      :'<button class="btn btn-primary btn-sm" onclick="abrirRegistro(\''+a.id+'\')">▶ Iniciar registro</button>';
     const tr=document.createElement('tr');
     tr.innerHTML='<td>'+(i+1)+'</td><td>'+marcaBadge+'</td><td>'+a.proveedor+'</td>'+
       '<td><strong>'+a.ref+'</strong></td><td>'+(a.color_pantone||'')+'</td>'+
@@ -2156,7 +2315,8 @@ function renderAudsAuditor(){
       '<td style="text-align:center">'+(a.unidades||'')+'</td>'+
       '<td>'+(a.fecha_audit||'')+'</td>'+
       '<td class="center"><strong style="color:var(--green)">'+(a.hora_admin||a.hora||'—')+'</strong></td>'+
-      '<td><span class="badge badge-green">'+(a.estado||'')+'</span></td>';
+      '<td>'+estadoBadge+'</td>'+
+      '<td class="center">'+accionBtn+'</td>';
     tbody.appendChild(tr);
   });
   const totalU=auds.reduce((s,a)=>s+(parseInt(a.unidades)||0),0);
@@ -2164,7 +2324,706 @@ function renderAudsAuditor(){
     '<tr style="background:var(--surface);font-weight:700">'+
     '<td colspan="7" style="padding:8px 10px;text-align:right;font-size:11px">TOTAL UNIDADES:</td>'+
     '<td style="padding:8px 10px;color:var(--green);font-size:13px">'+totalU.toLocaleString()+'</td>'+
-    '<td colspan="3"></td></tr>':'';
+    '<td colspan="4"></td></tr>':'';
+}
+
+/* ══════════════════════════════════════════════════════════
+   FASE 2 — REGISTRO DE AUDITORÍA (piloto)
+   ══════════════════════════════════════════════════════════ */
+
+const STORAGE_BUCKET='fotos-auditoria';
+async function subirFotoStorage(file, path){
+  const res=await fetch(SB_URL+'/storage/v1/object/'+STORAGE_BUCKET+'/'+path,{
+    method:'POST',
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':file.type||'application/octet-stream'},
+    body:file
+  });
+  if(!res.ok) throw new Error(await res.text());
+  return SB_URL+'/storage/v1/object/public/'+STORAGE_BUCKET+'/'+path;
+}
+
+/* ── Motor AQL / Tabla Militar (ANSI/ASQC Z1.4, ref. cap.10 manual) ──
+   Tabla I: letra código según tamaño de lote y nivel de inspección. */
+const AQL_TABLA_LETRA=[
+  {min:2,max:8,I:'A',II:'A',III:'B'},
+  {min:9,max:15,I:'A',II:'B',III:'C'},
+  {min:16,max:25,I:'B',II:'C',III:'D'},
+  {min:26,max:50,I:'C',II:'D',III:'E'},
+  {min:51,max:90,I:'C',II:'E',III:'F'},
+  {min:91,max:150,I:'D',II:'F',III:'G'},
+  {min:151,max:280,I:'E',II:'G',III:'H'},
+  {min:281,max:500,I:'F',II:'H',III:'J'},
+  {min:501,max:1200,I:'G',II:'J',III:'K'},
+  {min:1201,max:3200,I:'H',II:'K',III:'L'},
+  {min:3201,max:10000,I:'J',II:'L',III:'M'},
+  {min:10001,max:35000,I:'K',II:'M',III:'N'},
+  {min:35001,max:150000,I:'L',II:'N',III:'P'},
+  {min:150001,max:500000,I:'M',II:'P',III:'Q'},
+  {min:500001,max:Infinity,I:'N',II:'Q',III:'R'}
+];
+/* Tabla II: plan de muestreo YA RESUELTO por letra y por AQL (1.0 / 1.5 / 2.5),
+   verificado contra la calculadora pública AQL de HQTS
+   (https://www.hqts.com/es/calculadora-aql/) para las letras E a L (lotes 51 a
+   10.000, que cubre el uso típico de Rifle/Moft, 500-1200 unds). Letras M-R
+   (lotes >10.000, atípico en Rifle/Moft) se extrapolan de la progresión estándar
+   confirmada en E-L: mismo tamaño de muestra para 1.0/1.5/2.5, Ac/Re avanza un
+   paso en la secuencia 0,1,2,3,5,7,10,14,21,30,44,65 por cada AQL. */
+const AQL_TABLA_MUESTRA={
+  A:{'1.0':null,'1.5':null,'2.5':null},
+  B:{'1.0':null,'1.5':null,'2.5':null},
+  C:{'1.0':null,'1.5':null,'2.5':null},
+  D:{'1.0':null,'1.5':null,'2.5':null},
+  E:{'1.0':{n:13,ac:0,re:1},'1.5':{n:8,ac:0,re:1},'2.5':{n:20,ac:1,re:2}},
+  F:{'1.0':{n:13,ac:0,re:1},'1.5':{n:32,ac:1,re:2},'2.5':{n:20,ac:1,re:2}},
+  G:{'1.0':{n:50,ac:1,re:2},'1.5':{n:32,ac:1,re:2},'2.5':{n:32,ac:2,re:3}},
+  H:{'1.0':{n:50,ac:1,re:2},'1.5':{n:50,ac:2,re:3},'2.5':{n:50,ac:3,re:4}},
+  J:{'1.0':{n:80,ac:2,re:3},'1.5':{n:80,ac:3,re:4},'2.5':{n:80,ac:5,re:6}},
+  K:{'1.0':{n:125,ac:3,re:4},'1.5':{n:125,ac:5,re:6},'2.5':{n:125,ac:7,re:8}},
+  L:{'1.0':{n:200,ac:5,re:6},'1.5':{n:200,ac:7,re:8},'2.5':{n:200,ac:10,re:11}},
+  M:{'1.0':{n:315,ac:7,re:8},'1.5':{n:315,ac:10,re:11},'2.5':{n:315,ac:14,re:15}},
+  N:{'1.0':{n:500,ac:10,re:11},'1.5':{n:500,ac:14,re:15},'2.5':{n:500,ac:21,re:22}},
+  P:{'1.0':{n:800,ac:14,re:15},'1.5':{n:800,ac:21,re:22},'2.5':{n:800,ac:30,re:31}},
+  Q:{'1.0':{n:1250,ac:21,re:22},'1.5':{n:1250,ac:30,re:31},'2.5':{n:1250,ac:44,re:45}},
+  R:{'1.0':{n:2000,ac:30,re:31},'1.5':{n:2000,ac:44,re:45},'2.5':{n:2000,ac:65,re:66}}
+};
+function calcularMuestreo(cantLote,nivelInspeccion,aqlMayor,aqlMenor){
+  const rango=AQL_TABLA_LETRA.find(r=>cantLote>=r.min&&cantLote<=r.max);
+  if(!rango) return null;
+  const letras=Object.keys(AQL_TABLA_MUESTRA);
+  let letra=rango[nivelInspeccion]||rango.II;
+  let idx=letras.indexOf(letra);
+  function resolver(aql){
+    let i=idx,l=letra,p=AQL_TABLA_MUESTRA[l]&&AQL_TABLA_MUESTRA[l][aql];
+    while(!p&&i<letras.length-1){ i++; l=letras[i]; p=AQL_TABLA_MUESTRA[l]&&AQL_TABLA_MUESTRA[l][aql]; }
+    return p||null;
+  }
+  const planMayor=resolver(aqlMayor), planMenor=resolver(aqlMenor);
+  if(!planMayor||!planMenor) return null;
+  const tamanoMuestra=Math.max(planMayor.n,planMenor.n);
+  return {letra,tamanoMuestra,mayor:[planMayor.ac,planMayor.re],menor:[planMenor.ac,planMenor.re]};
+}
+function evaluarResultado(muestreo,hallazgos){
+  const totales={CRITICO:0,MAYOR:0,MENOR:0};
+  hallazgos.forEach(h=>{ totales[h.criterio]=(totales[h.criterio]||0)+(parseInt(h.cantidad)||0); });
+  const motivos=[]; let rechazado=false;
+  if(totales.CRITICO>0){ rechazado=true; motivos.push(totales.CRITICO+' defecto(s) CRITICO(S) - AQL 0%: un solo defecto critico rechaza el lote.'); }
+  if(muestreo.mayor&&totales.MAYOR>=muestreo.mayor[1]){ rechazado=true; motivos.push(totales.MAYOR+' defecto(s) MAYOR(ES) - alcanza el numero de rechazo Re='+muestreo.mayor[1]+'.'); }
+  if(muestreo.menor&&totales.MENOR>=muestreo.menor[1]){ rechazado=true; motivos.push(totales.MENOR+' defecto(s) MENOR(ES) - alcanza el numero de rechazo Re='+muestreo.menor[1]+'.'); }
+  return {estado:rechazado?'Rechazado':'Aprobado',totales,motivos};
+}
+
+/* ── Biblioteca de defectos por categoria (admin: tab Defectos) ──
+   9 categorias fijas, cada una con un codigo de 2 digitos. El "Cod" de cada
+   defecto se autogenera como categoria+consecutivo (ej. Telas=01, primer
+   defecto=011, segundo=012; Confeccion=02, primer defecto=021, etc.), tal
+   como lo pidio Kathe, para no depender de digitacion manual del codigo. */
+const CATEGORIAS_DEFECTOS=[
+  {cod:'01',nombre:'Telas'},
+  {cod:'02',nombre:'Confección'},
+  {cod:'03',nombre:'Medidas'},
+  {cod:'04',nombre:'Acabados'},
+  {cod:'05',nombre:'Estampados'},
+  {cod:'06',nombre:'Bordados'},
+  {cod:'07',nombre:'Lavandería'},
+  {cod:'08',nombre:'Empaque'},
+  {cod:'09',nombre:'Etiquetas'}
+];
+async function cargarDefectos(){
+  try{ const rows=await sb('/rest/v1/catalogo_defectos?select=*&order=codigo.asc'); S.defectos=rows||[]; renderTablaDefectos(); }
+  catch(e){}
+}
+function siguienteCodDefecto(categoriaNombre){
+  const cat=CATEGORIAS_DEFECTOS.find(c=>c.nombre===categoriaNombre);
+  if(!cat) return '';
+  const prefijo=cat.cod;
+  let maxSeq=0;
+  S.defectos.forEach(d=>{
+    const cod=(d.codigo||'').toString();
+    if(cod.startsWith(prefijo)){
+      const seq=parseInt(cod.slice(prefijo.length),10);
+      if(!isNaN(seq)&&seq>maxSeq) maxSeq=seq;
+    }
+  });
+  return prefijo+(maxSeq+1);
+}
+function actualizarCodPreview(){
+  const categoria=document.getElementById('dCategoria').value;
+  document.getElementById('dCodigo').value=categoria?siguienteCodDefecto(categoria):'';
+}
+function renderTablaDefectos(){
+  const tbody=document.getElementById('tblDefectos'); if(!tbody) return;
+  const filtro=document.getElementById('fDefectoCategoria')?document.getElementById('fDefectoCategoria').value:'';
+  const lista=filtro?S.defectos.filter(d=>d.categoria===filtro):S.defectos;
+  tbody.innerHTML='';
+  const msg=document.getElementById('emptyDefectoMsg'); if(msg) msg.style.display=lista.length?'none':'block';
+  lista.forEach((d,i)=>{
+    const badgeClass=d.criterio==='CRITICO'?'badge-red':(d.criterio==='MAYOR'?'badge-blue':'badge-gray');
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td><strong>'+(d.codigo||'')+'</strong></td><td>'+(d.categoria||'')+'</td><td>'+d.nombre+'</td>'+
+      '<td><span class="badge '+badgeClass+'">'+d.criterio+'</span></td>'+
+      '<td class="center"><button class="del-btn" onclick="eliminarDefecto(\''+d.id+'\')">DEL</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+async function guardarDefecto(){
+  const categoria=document.getElementById('dCategoria').value;
+  const nombre=document.getElementById('dNombre').value.trim();
+  const criterio=document.getElementById('dCriterio').value;
+  const errEl=document.getElementById('regDefectoError'),okEl=document.getElementById('regDefectoOk');
+  errEl.style.display='none';okEl.style.display='none';
+  if(!categoria){errEl.textContent='Selecciona una categoria.';errEl.style.display='block';return;}
+  if(!nombre){errEl.textContent='Escribe el nombre del defecto.';errEl.style.display='block';return;}
+  const codigo=siguienteCodDefecto(categoria);
+  const btn=document.getElementById('btnGuardarDefecto'); btn.disabled=true;
+  try{
+    await sb('/rest/v1/catalogo_defectos',{method:'POST',body:{nombre,codigo,categoria,criterio,activo:true},prefer:'return=representation'});
+    document.getElementById('dNombre').value='';document.getElementById('dCategoria').value='';document.getElementById('dCodigo').value='';
+    okEl.textContent='Defecto agregado con cod '+codigo+'.';okEl.style.display='block';
+    await cargarDefectos();
+  }catch(e){errEl.textContent='Error al guardar (verifica que no exista ya ese defecto).';errEl.style.display='block';}
+  btn.disabled=false;
+}
+async function eliminarDefecto(id){
+  if(!confirm('Eliminar este defecto del catalogo?'))return;
+  try{ await sb('/rest/v1/catalogo_defectos?id=eq.'+id,{method:'DELETE'}); S.defectos=S.defectos.filter(d=>d.id!==id); renderTablaDefectos(); }
+  catch(e){toast('Error al eliminar.');}
+}
+
+/* ── Correos internos por grupo (admin: tab Correos internos) ──
+   Se usan para notificar automaticamente al equipo Rifle/Moft cuando el
+   auditor guarda un registro de auditoria (ver enviarCorreoAuditoria). */
+const GRUPOS_CORREO_MAP=[
+  {grupo:'Producción',id:'grpProduccion'},
+  {grupo:'Diseño Rifle',id:'grpDisenoRifle'},
+  {grupo:'Diseño Moft',id:'grpDisenoMoft'},
+  {grupo:'Planeación Rifle',id:'grpPlaneacionRifle'},
+  {grupo:'Planeación Moft',id:'grpPlaneacionMoft'}
+];
+async function cargarGruposCorreo(){
+  try{
+    const rows=await sb('/rest/v1/grupos_correo?select=*');
+    S.gruposCorreo=rows||[];
+    GRUPOS_CORREO_MAP.forEach(m=>{
+      const row=S.gruposCorreo.find(r=>r.grupo===m.grupo);
+      const el=document.getElementById(m.id);
+      if(el) el.value=(row&&row.correos)||'';
+    });
+  }catch(e){}
+}
+async function guardarGruposCorreo(){
+  const errEl=document.getElementById('grpCorreoError'),okEl=document.getElementById('grpCorreoOk');
+  errEl.style.display='none';okEl.style.display='none';
+  try{
+    for(const m of GRUPOS_CORREO_MAP){
+      const val=(document.getElementById(m.id).value||'').trim();
+      await sb('/rest/v1/grupos_correo?grupo=eq.'+encodeURIComponent(m.grupo),{method:'PATCH',body:{correos:val,updated_at:new Date().toISOString()}});
+    }
+    okEl.textContent='Correos guardados.';okEl.style.display='block';
+    await cargarGruposCorreo();
+  }catch(e){ errEl.textContent='Error al guardar: '+e.message;errEl.style.display='block'; }
+}
+
+/* ── Registro de auditoria (auditor) ── */
+/* Busca la fila del archivo base que corresponde EXACTAMENTE a esta auditoria:
+   misma marca (ya viene separado en S.data[marca]), REF, Paq, Canal Y Color Pantone.
+   Si ademas hay coincidencia en Ppto unids, se prefiere esa (mas especifica); si no,
+   se usa el match sin Ppto unids para no quedar sin OC/Predistribuido por una
+   diferencia menor en las unidades. Antes de este ajuste NO se filtraba por color,
+   por lo que con REF+Paq+Canal repetidos en varios colores (ej: mismo REF programado
+   en Verde y Negro el mismo dia) podia traer el OC/Predistribuido del color equivocado. */
+function buscarFilaBase(a){
+  const data=S.data[a.marca]||[];
+  const coincideBase=r=>
+    norm(r['REF'])===norm(a.ref||'') &&
+    norm((r['Paq']||'').toString())===norm((a.paq||'').toString()) &&
+    norm(r['CANAL']||'')===norm(a.canal||'') &&
+    norm(r['Color Pantone']||'')===norm(a.color_pantone||'');
+  let fila=data.find(r=>coincideBase(r)&&norm((r['Ppto unids']||'').toString())===norm((a.unidades||'').toString()));
+  if(!fila) fila=data.find(coincideBase);
+  return fila;
+}
+function abrirRegistro(auditoriaId){
+  const a=S.auditorias.find(x=>String(x.id)===String(auditoriaId));
+  if(!a){toast('No se encontro la auditoria.');return;}
+  if(!S.defectos.length){toast('Aun no hay defectos en el catalogo. Pide al administrador que los cargue en la pestana Defectos.');}
+  const candidatos=S.auditorias.filter(x=>
+    x.id!==a.id&&x.marca===a.marca&&norm(x.ref)===norm(a.ref)&&norm(x.color_pantone||'')===norm(a.color_pantone||'')&&
+    norm((x.paq||'').toString())===norm((a.paq||'').toString())&&x.fecha_audit===a.fecha_audit&&!(x.estado||'').startsWith('Auditada'));
+  S.registroActual={principal:a,candidatos,seleccionados:[a.id],cantLote:0,muestreo:null,resultado:null,hallazgos:[],totalDefectuosas:0,rechazoPrevio:undefined,inicioRegistro:new Date().toISOString()};
+  renderModalRegistro();
+  document.getElementById('modalRegistro').style.display='flex';
+}
+function actualizarOcPredistribuido(){
+  const ctx=S.registroActual;if(!ctx)return;
+  const todas=[ctx.principal,...ctx.candidatos].filter(x=>ctx.seleccionados.includes(x.id));
+  const ocs=[],preds=[];
+  todas.forEach(x=>{
+    const fila=buscarFilaBase(x);
+    if(fila){
+      const oc=(fila['# OC']||'').toString().trim();
+      const pred=(fila['PREDISTRIBUIDO']||'').toString().trim();
+      if(oc&&!ocs.includes(oc)) ocs.push(oc);
+      if(pred&&!preds.includes(pred)) preds.push(pred);
+    }
+  });
+  document.getElementById('regOc').value=ocs.join(', ')||'';
+  document.getElementById('regPredistribuido').textContent=preds.length?preds.join(', '):'-';
+}
+/* Revisa si el ULTIMO registro para el mismo pedido (misma OC Y misma
+   marca+referencia+color) fue Rechazado. "Mismo pedido" = al menos una OC en
+   comun entre el registro actual y el historico (los campos OC pueden venir
+   como lista separada por comas cuando se agrupan varios canales). */
+async function chequearRechazoPrevio(a){
+  const ctx=S.registroActual;if(!ctx)return;
+  ctx.rechazoPrevio=null;
+  try{
+    const rows=await sb('/rest/v1/auditoria_registro?select=estado,oc_om,creado_en&marca=eq.'+encodeURIComponent(a.marca)+'&referencia=eq.'+encodeURIComponent(a.ref)+'&color=eq.'+encodeURIComponent(a.color_pantone||'')+'&order=creado_en.desc&limit=5');
+    const ocActual=(document.getElementById('regOc').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const match=(rows||[]).find(r=>{
+      const ocsPrev=(r.oc_om||'').split(',').map(s=>s.trim()).filter(Boolean);
+      return ocActual.length&&ocsPrev.some(oc=>ocActual.includes(oc));
+    });
+    ctx.rechazoPrevio=(match&&match.estado==='Rechazado')?match:null;
+  }catch(e){ ctx.rechazoPrevio=null; }
+  renderAvisoRechazoPrevio();
+  recalcularResultado();
+}
+function renderAvisoRechazoPrevio(){
+  const ctx=S.registroActual;if(!ctx)return;
+  const el=document.getElementById('regAvisoRechazo');
+  if(ctx.rechazoPrevio){
+    el.textContent='ATENCION: el ultimo registro de este mismo pedido (misma OC y misma referencia-color) fue RECHAZADO. Si este tambien se rechaza, segun el manual de calidad (cap. 10.4) el pedido debe cancelarse.';
+    el.style.display='block';
+  }else{
+    el.style.display='none';
+  }
+}
+/* Checkboxes de grupos internos a notificar por correo al guardar el registro.
+   Siempre se ofrece Produccion; Diseño/Planeacion se filtran segun la marca de
+   la auditoria (Rifle o Moft) para no mostrar grupos que no aplican. Quedan
+   marcados por defecto para que el envio no dependa de que el auditor recuerde
+   activarlos; puede desmarcar los que no correspondan antes de guardar. */
+function renderGruposCorreoRegistro(){
+  const wrap=document.getElementById('regGruposCorreo');if(!wrap)return;
+  const marca=S.registroActual.principal.marca;
+  const grupos=['Producción'];
+  if(marca==='Rifle') grupos.push('Diseño Rifle','Planeación Rifle');
+  if(marca==='Moft') grupos.push('Diseño Moft','Planeación Moft');
+  wrap.innerHTML=grupos.map(g=>
+    '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">'+
+    '<input type="checkbox" class="chk-grupo-correo" value="'+g+'" checked> '+g+'</label>'
+  ).join('');
+}
+function renderModalRegistro(){
+  const ctx=S.registroActual;if(!ctx)return;
+  const a=ctx.principal;
+  document.getElementById('regTituloProv').textContent='Registro auditoria '+a.proveedor;
+  document.getElementById('regTituloRef').textContent=a.marca+' - '+a.ref+' - '+(a.color_pantone||'')+' - Paq '+(a.paq||'');
+  const wrap=document.getElementById('regCanales');wrap.innerHTML='';
+  const filaAudActual=document.createElement('label');
+  filaAudActual.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px';
+  filaAudActual.innerHTML='<input type="checkbox" checked disabled> <span>Canal <strong>'+(a.canal||'-')+'</strong> - '+(a.unidades||0)+' unds <span style="color:var(--ink-soft)">(auditoria actual)</span></span>';
+  wrap.appendChild(filaAudActual);
+  ctx.candidatos.forEach(c=>{
+    const div=document.createElement('label');
+    div.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px';
+    div.innerHTML='<input type="checkbox" id="chkCanal_'+c.id+'" onchange="toggleCanalRegistro(\''+c.id+'\')"> <span>Canal <strong>'+(c.canal||'-')+'</strong> - '+(c.unidades||0)+' unds</span>';
+    wrap.appendChild(div);
+  });
+  if(!ctx.candidatos.length){
+    const p=document.createElement('p');p.style.cssText='font-size:12px;color:var(--ink-soft);margin-top:4px';
+    p.textContent='No hay otros canales pendientes de esta ref-color-paq en la misma fecha.';wrap.appendChild(p);
+  }
+  renderGruposCorreoRegistro();
+  actualizarCantLote();
+  actualizarOcPredistribuido();
+  document.getElementById('regNivel').value='II';
+  document.getElementById('regAqlMayor').value='1.0';
+  document.getElementById('regAqlMenor').value='2.5';
+  document.getElementById('regPvp').value='';
+  document.getElementById('regObservaciones').value='';
+  ['regInsumos','regEstampado','regLavanderia','regBordado','regEtiqueta'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('regHallazgos').innerHTML='';
+  document.getElementById('regUndsAuditadas').value='';
+  document.getElementById('regTamanoMuestra').value='';
+  document.getElementById('regAlertaCancelacion').style.display='none';
+  addHallazgoRow();
+  recalcularMuestreo();
+  chequearRechazoPrevio(a);
+}
+function toggleCanalRegistro(id){
+  const ctx=S.registroActual;if(!ctx)return;
+  const chk=document.getElementById('chkCanal_'+id);
+  if(chk.checked){ if(!ctx.seleccionados.includes(id)) ctx.seleccionados.push(id); }
+  else { ctx.seleccionados=ctx.seleccionados.filter(x=>x!==id); }
+  actualizarCantLote();actualizarOcPredistribuido();recalcularMuestreo();
+  chequearRechazoPrevio(ctx.principal);
+}
+function actualizarCantLote(){
+  const ctx=S.registroActual;if(!ctx)return;
+  const todas=[ctx.principal,...ctx.candidatos];
+  const cant=todas.filter(x=>ctx.seleccionados.includes(x.id)).reduce((s,x)=>s+(parseInt(x.unidades)||0),0);
+  document.getElementById('regCantLote').textContent=cant.toLocaleString();
+  ctx.cantLote=cant;
+}
+function recalcularMuestreo(){
+  const ctx=S.registroActual;if(!ctx)return;
+  const nivel=document.getElementById('regNivel').value;
+  const aqlMayor=document.getElementById('regAqlMayor').value;
+  const aqlMenor=document.getElementById('regAqlMenor').value;
+  const m=calcularMuestreo(ctx.cantLote||0,nivel,aqlMayor,aqlMenor);
+  ctx.muestreo=m;
+  const info=document.getElementById('regMuestraInfo');
+  const tamInput=document.getElementById('regTamanoMuestra');
+  if(!m){
+    info.textContent='Cantidad de lote fuera de los rangos de la tabla militar.';
+    tamInput.value='';
+  }else{
+    tamInput.value=m.tamanoMuestra;
+    info.innerHTML='Letra codigo <strong>'+m.letra+'</strong>'+
+      ' | Mayor (AQL '+aqlMayor+'%) Ac'+(m.mayor?m.mayor[0]:'-')+'/Re'+(m.mayor?m.mayor[1]:'-')+
+      ' | Menor (AQL '+aqlMenor+'%) Ac'+(m.menor?m.menor[0]:'-')+'/Re'+(m.menor?m.menor[1]:'-');
+  }
+  recalcularResultado();
+}
+/* Fila de hallazgo: buscador tipo autocompletar (no <select>) para que el
+   auditor escriba y filtre por nombre O por codigo del defecto. Solo cuenta
+   como hallazgo valido si se selecciono una sugerencia de la lista (queda
+   guardado el id en row.dataset.defectoId); si el auditor sigue escribiendo
+   despues de elegir uno, el id se limpia hasta que vuelva a elegir, para no
+   guardar un defecto que ya no corresponde al texto visible. */
+function addHallazgoRow(){
+  const wrap=document.getElementById('regHallazgos');
+  const row=document.createElement('div');
+  row.className='hallazgo-row';
+  row.dataset.defectoId='';
+  row.style.cssText='border:1.5px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px';
+  row.innerHTML=
+    '<div style="display:grid;grid-template-columns:2fr 90px 90px 34px;gap:8px;align-items:center">'+
+      '<div style="position:relative">'+
+        '<input type="text" class="hz-defecto-input" autocomplete="off" placeholder="Escribe nombre o código..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">'+
+        '<div class="hz-defecto-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:6px;margin-top:2px;max-height:220px;overflow-y:auto;z-index:80;box-shadow:0 4px 14px rgba(0,0,0,.14)"></div>'+
+      '</div>'+
+      '<div class="hz-criterio" style="font-size:11px;color:var(--ink-soft);text-align:center">-</div>'+
+      '<input type="number" min="0" placeholder="Cant." style="padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">'+
+      '<button type="button" class="del-btn" title="Quitar">X</button>'+
+    '</div>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-top:8px">'+
+      '<label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">Foto<input type="file" accept="image/*" capture="environment" style="display:none" class="hz-foto-input"></label>'+
+      '<img class="hz-foto-preview" style="display:none;height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">'+
+      '<span class="hz-foto-status" style="font-size:11px;color:var(--ink-soft)"></span>'+
+    '</div>';
+  wrap.appendChild(row);
+  const defInput=row.querySelector('.hz-defecto-input'),dropdown=row.querySelector('.hz-defecto-dropdown');
+  const criterioEl=row.querySelector('.hz-criterio'),cant=row.querySelector('input[type=number]'),delBtn=row.querySelector('.del-btn');
+  const fotoInput=row.querySelector('.hz-foto-input'),fotoPreview=row.querySelector('.hz-foto-preview'),fotoStatus=row.querySelector('.hz-foto-status');
+  function renderDropdown(filtro){
+    const f=norm(filtro||'');
+    const matches=S.defectos.filter(d=>!f||norm(d.nombre).includes(f)||norm((d.codigo||'')).includes(f)).slice(0,60);
+    if(!matches.length){
+      dropdown.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--ink-soft)">Sin resultados. Pide al administrador que cargue este defecto en la pestaña Defectos.</div>';
+    }else{
+      dropdown.innerHTML=matches.map(d=>
+        '<div class="hz-defecto-opt" data-id="'+d.id+'" style="padding:8px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border)">'+
+          '<strong>'+(d.codigo||'')+'</strong> — '+d.nombre+' <span style="color:var(--ink-soft);font-size:11px">('+d.criterio+')</span>'+
+        '</div>'
+      ).join('');
+    }
+    dropdown.style.display='block';
+  }
+  defInput.addEventListener('focus',()=>renderDropdown(defInput.value));
+  defInput.addEventListener('input',()=>{
+    row.dataset.defectoId='';
+    criterioEl.textContent='-';
+    renderDropdown(defInput.value);
+    recalcularResultado();
+  });
+  defInput.addEventListener('blur',()=>{ setTimeout(()=>{ dropdown.style.display='none'; },150); });
+  dropdown.addEventListener('mousedown',e=>{
+    const opt=e.target.closest('.hz-defecto-opt'); if(!opt) return;
+    e.preventDefault();
+    const d=S.defectos.find(x=>String(x.id)===String(opt.dataset.id)); if(!d) return;
+    row.dataset.defectoId=d.id;
+    defInput.value=(d.codigo?d.codigo+' - ':'')+d.nombre;
+    criterioEl.textContent=d.criterio;
+    dropdown.style.display='none';
+    recalcularResultado();
+  });
+  cant.addEventListener('input',recalcularResultado);
+  delBtn.addEventListener('click',()=>{row.remove();recalcularResultado();});
+  fotoInput.addEventListener('change',async()=>{
+    const file=fotoInput.files[0];if(!file)return;
+    fotoStatus.textContent='Subiendo...';
+    try{
+      const path=Date.now()+'_'+Math.random().toString(36).slice(2)+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const url=await subirFotoStorage(file,path);
+      row.dataset.fotoUrl=url;
+      fotoPreview.src=url;fotoPreview.style.display='inline-block';
+      fotoStatus.textContent='Foto adjunta';
+    }catch(e){ fotoStatus.textContent='Error al subir la foto (revisa el bucket de Storage).'; }
+  });
+}
+function leerHallazgos(){
+  const rows=[...document.querySelectorAll('#regHallazgos .hallazgo-row')];
+  const hallazgos=[];
+  rows.forEach(r=>{
+    const defectoId=r.dataset.defectoId;
+    const cant=r.querySelector('input[type=number]');
+    if(defectoId&&cant&&cant.value){
+      const d=S.defectos.find(x=>String(x.id)===String(defectoId));
+      if(d) hallazgos.push({defecto_id:defectoId,defecto_nombre:d.nombre,criterio:d.criterio,cantidad:parseInt(cant.value)||0,foto_url:r.dataset.fotoUrl||null});
+    }
+  });
+  return hallazgos;
+}
+function recalcularResultado(){
+  const ctx=S.registroActual;if(!ctx||!ctx.muestreo)return;
+  const hallazgos=leerHallazgos();
+  const totalDefectuosas=hallazgos.reduce((s,h)=>s+h.cantidad,0);
+  const res=evaluarResultado(ctx.muestreo,hallazgos);
+  ctx.resultado=res;ctx.hallazgos=hallazgos;ctx.totalDefectuosas=totalDefectuosas;
+  const badge=document.getElementById('regResultadoBadge');
+  badge.textContent=res.estado;
+  badge.className='badge '+(res.estado==='Aprobado'?'badge-green':'badge-red');
+  document.getElementById('regResultadoMotivos').innerHTML=res.motivos.length?res.motivos.map(m=>'- '+m).join('<br>'):(res.estado==='Aprobado'?'Los hallazgos estan dentro de los limites de AQL.':'');
+  const totalEl=document.getElementById('regTotalDefectuosas');
+  if(totalEl) totalEl.textContent=totalDefectuosas;
+  const alertaCancelacion=document.getElementById('regAlertaCancelacion');
+  if(res.estado==='Rechazado'&&ctx.rechazoPrevio){
+    alertaCancelacion.textContent='ALERTA: SEGUNDO RECHAZO CONSECUTIVO PARA ESTE PEDIDO. Segun el manual de calidad (cap. 10.4), el pedido debe cancelarse.';
+    alertaCancelacion.style.display='block';
+  }else{
+    alertaCancelacion.style.display='none';
+  }
+}
+function cerrarModalRegistro(){ document.getElementById('modalRegistro').style.display='none'; S.registroActual=null; }
+/* Bloquea el guardado si alguna fila de hallazgo quedo con texto escrito pero
+   sin un defecto realmente seleccionado de la biblioteca (o con cantidad sin
+   defecto, o defecto sin cantidad). Antes esa fila simplemente se ignoraba al
+   guardar (silencioso); ahora se avisa explicitamente para que nunca quede
+   -ni se pierda sin darse cuenta- un intento de registrar algo que no esta
+   en la lista de defectos. */
+function validarHallazgosFormulario(){
+  const rows=[...document.querySelectorAll('#regHallazgos .hallazgo-row')];
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i];
+    const texto=(r.querySelector('.hz-defecto-input').value||'').trim();
+    const defectoId=r.dataset.defectoId;
+    const cantVal=(r.querySelector('input[type=number]').value||'').trim();
+    if(!texto&&!cantVal) continue; // fila vacia sin usar, se ignora
+    if(texto&&!defectoId){
+      return {ok:false,mensaje:'Hallazgo '+(i+1)+': "'+texto+'" no es un defecto de la biblioteca. Selecciona una opcion de la lista (o pide al administrador que lo agregue en la pestana Defectos).'};
+    }
+    if(!defectoId){
+      return {ok:false,mensaje:'Hallazgo '+(i+1)+': selecciona un defecto de la lista antes de guardar.'};
+    }
+    if(!cantVal){
+      return {ok:false,mensaje:'Hallazgo '+(i+1)+': indica la cantidad del defecto seleccionado.'};
+    }
+  }
+  return {ok:true};
+}
+async function guardarRegistro(){
+  const ctx=S.registroActual;if(!ctx||!ctx.muestreo){toast('Completa la informacion de muestreo.');return;}
+  const camposVerif=['regInsumos','regEstampado','regLavanderia','regBordado','regEtiqueta'];
+  const faltantes=camposVerif.some(id=>!document.getElementById(id).value);
+  if(faltantes){toast('Completa todas las verificaciones adicionales (Cumple / No cumple / No aplica).');return;}
+  const validacionHallazgos=validarHallazgosFormulario();
+  if(!validacionHallazgos.ok){toast(validacionHallazgos.mensaje);return;}
+  const hallazgos=leerHallazgos();
+  const undsAuditadas=parseInt(document.getElementById('regUndsAuditadas').value)||0;
+  if(!undsAuditadas){toast('Indica las unidades auditadas.');return;}
+  const a=ctx.principal;
+  const btn=document.getElementById('btnGuardarRegistro');
+  btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span> Guardando...';
+  try{
+    const todas=[ctx.principal,...ctx.candidatos].filter(x=>ctx.seleccionados.includes(x.id));
+    const predistribuidoTxt=document.getElementById('regPredistribuido').textContent;
+    const body={
+      fecha:a.fecha_audit,auditor:S.user,proveedor:a.proveedor,marca:a.marca,
+      oc_om:document.getElementById('regOc').value||'',predistribuido:(predistribuidoTxt==='-'?'':predistribuidoTxt),
+      referencia:a.ref,paquete:(a.paq||'').toString(),color:a.color_pantone||'',
+      canales:todas.map(x=>x.canal).join(', '),auditoria_ids:ctx.seleccionados,cant_lote:ctx.cantLote,
+      nivel_inspeccion:document.getElementById('regNivel').value,
+      aql_mayor:document.getElementById('regAqlMayor').value,aql_menor:document.getElementById('regAqlMenor').value,
+      letra_codigo:ctx.muestreo.letra,tamano_muestra:ctx.muestreo.tamanoMuestra,
+      unds_auditadas:undsAuditadas,unidades_defectuosas:ctx.totalDefectuosas||0,hallazgos:hallazgos,
+      insumos:document.getElementById('regInsumos').value,estampado:document.getElementById('regEstampado').value,
+      lavanderia:document.getElementById('regLavanderia').value,bordado:document.getElementById('regBordado').value,
+      etiqueta:document.getElementById('regEtiqueta').value,pvp:document.getElementById('regPvp').value||'',
+      observaciones:document.getElementById('regObservaciones').value||'',estado:ctx.resultado.estado,
+      inicio_registro:ctx.inicioRegistro||null
+    };
+    await sb('/rest/v1/auditoria_registro',{method:'POST',body,prefer:'return=representation'});
+    for(const id of ctx.seleccionados){ await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{resultado_auditoria:ctx.resultado.estado}}); }
+    toast('Registro de auditoria guardado ('+ctx.resultado.estado+')',true);
+    const gruposSeleccionados=[...document.querySelectorAll('#regGruposCorreo .chk-grupo-correo:checked')].map(c=>c.value);
+    enviarCorreoAuditoria(a,body,gruposSeleccionados);
+    cerrarModalRegistro();
+    await cargarAudsAuditor();
+  }catch(e){toast('Error al guardar el registro.');}
+  btn.disabled=false;btn.textContent='Guardar registro de auditoria';
+}
+
+/* ── Reporte de auditoria (solo lectura para auditor/proveedor, ajustable/eliminable por admin) ── */
+async function abrirReporte(auditoriaId){
+  const a=(S.auditorias||[]).concat(S.misAuds||[]).find(x=>String(x.id)===String(auditoriaId));
+  let regs=[];
+  try{
+    regs=await sb('/rest/v1/auditoria_registro?select=*&auditoria_ids=cs.['+auditoriaId+']&order=creado_en.desc&limit=1');
+  }catch(e){}
+  if(!regs||!regs.length){toast('Aun no hay un registro de auditoria guardado para esta fila.');return;}
+  S.reporteActual={registro:regs[0],auditoriaId};
+  renderModalReporte();
+  document.getElementById('modalReporte').style.display='flex';
+}
+function renderModalReporte(){
+  const r=S.reporteActual.registro;
+  document.getElementById('repTitulo').textContent='Reporte auditoria '+(r.proveedor||'');
+  document.getElementById('repSubtitulo').textContent=(r.marca||'')+' - '+(r.referencia||'')+' - '+(r.color||'')+' - Paq '+(r.paquete||'')+' - '+(r.canales||'');
+  const hallazgosHtml=(r.hallazgos&&r.hallazgos.length)
+    ?r.hallazgos.map(h=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">'+
+        '<span>'+h.defecto_nombre+' <span class="badge '+(h.criterio==='CRITICO'?'badge-red':(h.criterio==='MAYOR'?'badge-blue':'badge-gray'))+'">'+h.criterio+'</span> x'+h.cantidad+'</span>'+
+        (h.foto_url?'<a href="'+h.foto_url+'" target="_blank"><img src="'+h.foto_url+'" style="height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"></a>':'')+
+      '</div>').join('')
+    :'<p style="font-size:13px;color:var(--ink-soft)">Sin hallazgos registrados.</p>';
+  document.getElementById('repContenido').innerHTML=
+    '<div class="form-grid"><div><strong>OC:</strong> '+(r.oc_om||'-')+'</div><div><strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'</div></div>'+
+    '<div style="margin:10px 0;font-size:13px"><strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'</div>'+
+    '<div style="margin:10px 0;font-size:13px"><strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%</div>'+
+    '<div style="margin:10px 0;font-size:13px"><strong>Letra:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+'</div>'+
+    '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Hallazgos</div>'+hallazgosHtml+
+    '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Verificaciones adicionales</div>'+
+    '<div style="font-size:13px">Insumos: '+(r.insumos||'-')+' | Estampado: '+(r.estampado||'-')+' | Lavanderia: '+(r.lavanderia||'-')+' | Bordado: '+(r.bordado||'-')+' | Etiqueta: '+(r.etiqueta||'-')+'</div>'+
+    '<div style="margin-top:8px;font-size:13px"><strong>PVP:</strong> '+(r.pvp||'-')+'</div>'+
+    '<div style="margin-top:8px;font-size:13px"><strong>Observaciones:</strong> '+(r.observaciones||'-')+'</div>'+
+    '<div class="divider"></div><div class="flex-between"><div style="font-weight:700">Resultado</div><span class="badge '+(r.estado==='Aprobado'?'badge-green':'badge-red')+'">'+r.estado+'</span></div>';
+  const ajusteEl=document.getElementById('repAlertaAjuste');
+  if(r.ajustado_manualmente){
+    ajusteEl.style.display='block';
+    ajusteEl.textContent='Este resultado fue ajustado manualmente por '+(r.ajustado_por||'-')+' el '+(r.ajustado_en||'').toString().slice(0,16).replace('T',' ')+'. Motivo: '+(r.ajustado_motivo||'-');
+  }else{ ajusteEl.style.display='none'; }
+  const panelAdmin=document.getElementById('repAdminAjuste');
+  if(S.role==='admin'&&r.estado==='Rechazado'){
+    panelAdmin.style.display='block';
+    document.getElementById('repMotivoAjuste').value='';
+  }else{
+    panelAdmin.style.display='none';
+  }
+  document.getElementById('repAdminEliminar').style.display=(S.role==='admin')?'block':'none';
+}
+async function ajustarResultadoAprobado(){
+  const motivo=document.getElementById('repMotivoAjuste').value.trim();
+  if(!motivo){toast('Escribe el motivo del ajuste.');return;}
+  if(!confirm('Vas a cambiar el resultado de esta auditoria de Rechazado a Aprobado. Esta accion queda registrada. Continuar?'))return;
+  const r=S.reporteActual.registro;
+  try{
+    await sb('/rest/v1/auditoria_registro?id=eq.'+r.id,{method:'PATCH',body:{estado:'Aprobado',ajustado_manualmente:true,ajustado_por:S.user,ajustado_motivo:motivo,ajustado_en:new Date().toISOString()}});
+    const ids=r.auditoria_ids||[];
+    for(const id of ids){ await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{resultado_auditoria:'Aprobado'}}); }
+    toast('Resultado actualizado a Aprobado.',true);
+    document.getElementById('modalReporte').style.display='none';
+    if(typeof cargarDatosAdmin==='function'&&S.role==='admin') cargarDatosAdmin();
+  }catch(e){toast('Error al actualizar el resultado.');}
+}
+async function eliminarRegistroReporte(){
+  const r=S.reporteActual.registro;
+  if(!confirm('Vas a ELIMINAR este registro de auditoria. El auditor podra volver a iniciarlo desde cero (boton "Iniciar registro"). Esta accion no se puede deshacer. Continuar?'))return;
+  try{
+    await sb('/rest/v1/auditoria_registro?id=eq.'+r.id,{method:'DELETE'});
+    const ids=r.auditoria_ids||[];
+    for(const id of ids){ await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{resultado_auditoria:null}}); }
+    toast('Registro eliminado. El auditor puede volver a iniciarlo.',true);
+    document.getElementById('modalReporte').style.display='none';
+    if(typeof cargarDatosAdmin==='function'&&S.role==='admin') cargarDatosAdmin();
+  }catch(e){toast('Error al eliminar el registro.');}
+}
+
+/* ── Correo automatico de resultado de auditoria (proveedor + grupos internos) ──
+   Se dispara al final de guardarRegistro(), SIN esperar (no bloquea el guardado
+   ya confirmado). Los correos del proveedor se leen frescos via API porque en la
+   sesion del auditor S.proveedores no esta cargado. Cualquier error de red o de
+   envio queda registrado en consola pero nunca revierte ni marca como fallido el
+   registro de auditoria, que ya quedo guardado en la base de datos. */
+function tplReporteAuditoria(a, r){
+  const resultadoColor = r.estado==='Aprobado' ? '#2e7d32' : '#c8433a';
+  const hallazgosHtml = (r.hallazgos&&r.hallazgos.length)
+    ? r.hallazgos.map(h=>'<tr><td style="padding:8px;border:1px solid #ddd;font-size:13px">'+h.defecto_nombre+'</td>'+
+        '<td style="padding:8px;border:1px solid #ddd;font-size:12px;text-align:center">'+h.criterio+'</td>'+
+        '<td style="padding:8px;border:1px solid #ddd;font-size:13px;text-align:center">'+h.cantidad+'</td>'+
+        '<td style="padding:8px;border:1px solid #ddd;text-align:center">'+(h.foto_url?'<a href="'+h.foto_url+'"><img src="'+h.foto_url+'" style="height:50px;width:50px;object-fit:cover;border-radius:4px"></a>':'-')+'</td></tr>').join('')
+    : '<tr><td colspan="4" style="padding:8px;border:1px solid #ddd;font-size:13px;color:#9a9a9a">Sin hallazgos registrados.</td></tr>';
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f0ede8;font-family:\'Segoe UI\',Arial,sans-serif;">'+
+'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0ede8;padding:32px 16px;"><tr><td align="center">'+
+'<table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);">'+
+  '<tr><td style="background:#1a1a2e;padding:28px 36px;text-align:center;">'+
+    '<p style="margin:0;font-family:Georgia,serif;font-size:20px;color:#fff;">Resultado de <span style="color:#c8433a;">Auditoria</span></p>'+
+    '<p style="margin:5px 0 0;font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;">Rifle &amp; Moft — GCO</p>'+
+  '</td></tr>'+
+  '<tr><td style="background:#c8433a;height:4px;"></td></tr>'+
+  '<tr><td style="padding:32px 36px 28px;">'+
+    '<p style="margin:0 0 6px;font-size:12px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">Auditoria registrada</p>'+
+    '<h1 style="margin:0 0 6px;font-family:Georgia,serif;font-size:22px;color:#1a1a2e;">'+(a.proveedor||'')+'</h1>'+
+    '<p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;">'+(a.marca||'')+' — '+(r.referencia||'')+' — '+(r.color||'')+' — Paq '+(r.paquete||'')+' — '+(r.canales||'')+'</p>'+
+    '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f5f2;border:1px solid #e2ddd8;border-radius:8px;margin-bottom:20px;">'+
+      '<tr><td style="padding:16px 20px;font-size:13px;color:#1a1a2e;line-height:1.8;">'+
+        '<strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'<br>'+
+        '<strong>OC:</strong> '+(r.oc_om||'-')+' &nbsp; <strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'<br>'+
+        '<strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%<br>'+
+        '<strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
+      '</td></tr>'+
+    '</table>'+
+    '<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1a1a2e;">Hallazgos</p>'+
+    '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:20px;">'+
+      '<thead><tr style="background:#1a1a2e;color:#fff"><th style="padding:8px;font-size:12px;text-align:left">Defecto</th><th style="padding:8px;font-size:12px">Criterio</th><th style="padding:8px;font-size:12px">Cant.</th><th style="padding:8px;font-size:12px">Foto</th></tr></thead>'+
+      '<tbody>'+hallazgosHtml+'</tbody>'+
+    '</table>'+
+    '<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;">'+
+      '<strong>Insumos:</strong> '+(r.insumos||'-')+' &nbsp; <strong>Estampado:</strong> '+(r.estampado||'-')+' &nbsp; <strong>Lavanderia:</strong> '+(r.lavanderia||'-')+'<br>'+
+      '<strong>Bordado:</strong> '+(r.bordado||'-')+' &nbsp; <strong>Etiqueta:</strong> '+(r.etiqueta||'-')+' &nbsp; <strong>PVP:</strong> '+(r.pvp||'-')+
+    '</p>'+
+    (r.observaciones?'<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;"><strong>Observaciones:</strong> '+r.observaciones+'</p>':'')+
+    '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:14px;background:#f7f5f2;border-radius:8px;">'+
+      '<span style="font-size:13px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">Resultado final</span><br>'+
+      '<strong style="font-size:22px;color:'+resultadoColor+';font-family:Georgia,serif;">'+r.estado+'</strong>'+
+    '</td></tr></table>'+
+  '</td></tr>'+
+  '<tr><td style="background:#f7f5f2;border-top:1px solid #e2ddd8;padding:16px 36px;text-align:center;">'+
+    '<p style="margin:0;font-size:11px;color:#b0b0b0;">Correo automatico — No responder · Sistema de Programacion de Auditorias · GCO</p>'+
+  '</td></tr>'+
+'</table></td></tr></table></body></html>';
+}
+async function enviarCorreoAuditoria(a, registro, grupos){
+  try{
+    const destinatarios=[];
+    try{
+      const provRows=await sb('/rest/v1/proveedores?select=email,email2,correos_auditoria&nombre=eq.'+encodeURIComponent(a.proveedor));
+      const prov=provRows&&provRows[0];
+      if(prov){
+        if(prov.email) destinatarios.push(prov.email);
+        if(prov.email2) destinatarios.push(prov.email2);
+        if(prov.correos_auditoria) prov.correos_auditoria.split(',').forEach(c=>{c=c.trim();if(c)destinatarios.push(c);});
+      }
+    }catch(eProv){ console.warn('No se pudieron leer los correos del proveedor.',eProv); }
+    if(grupos&&grupos.length){
+      try{
+        const gruposRows=await sb('/rest/v1/grupos_correo?select=grupo,correos');
+        (gruposRows||[]).forEach(g=>{
+          if(grupos.includes(g.grupo)&&g.correos){
+            g.correos.split(',').forEach(c=>{c=c.trim();if(c)destinatarios.push(c);});
+          }
+        });
+      }catch(eGrp){ console.warn('No se pudieron leer los correos de los grupos internos.',eGrp); }
+    }
+    const unicos=[...new Set(destinatarios.map(e=>e.trim()).filter(Boolean))];
+    if(!unicos.length) return;
+    const asunto='Resultado de auditoria - '+a.proveedor+' - '+a.ref+' ('+registro.estado+')';
+    const html=tplReporteAuditoria(a,registro);
+    for(const email of unicos){
+      try{ await sendBrevo(email,a.proveedor,asunto,html); }
+      catch(eIndividual){ console.warn('Error enviando correo de resultado de auditoria a '+email,eIndividual); }
+    }
+  }catch(e){ console.warn('No se pudo enviar el correo de resultado de auditoria.',e); }
 }
 
 document.addEventListener('keydown',e=>{
@@ -2172,13 +3031,14 @@ document.addEventListener('keydown',e=>{
 });
 
 init();
+
 </script>
 
 <!-- Modal Export Excel -->
 <div id="modalExport" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:12px;padding:28px 32px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
     <div style="font-family:Georgia,serif;font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px">Exportar a Excel</div>
-    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:20px">Selecciona el rango de fechas de registro a exportar. Deja en blanco para exportar todo.</div>
+    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:20px">Selecciona el rango de fechas de registro a exportar. Deja en blanco para exportar todo. Incluye programación y, si ya existe, el registro final del auditor (AQL, hallazgos, resultado).</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
       <div class="form-row" style="margin:0">
         <label>Desde</label>
@@ -2195,5 +3055,121 @@ init();
     </div>
   </div>
 </div>
+
+<!-- MODAL: Registro de auditoría (Fase 2 — piloto) -->
+<div id="modalRegistro" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:12px">
+  <div class="card" style="width:100%;max-width:720px;margin:0;max-height:92vh;overflow-y:auto">
+    <div class="card-title" id="regTituloProv">Registro de auditoría</div>
+    <div class="card-sub" id="regTituloRef" style="margin-bottom:16px"></div>
+
+    <div id="regAvisoRechazo" class="alert alert-error" style="display:none"></div>
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Agrupar canales de esta ref-color-paq (misma fecha)</div>
+    <div id="regCanales" style="margin-bottom:6px"></div>
+    <div style="font-size:13px;margin-bottom:16px">Cantidad de lote consolidada: <strong id="regCantLote">0</strong> unidades</div>
+
+    <div class="form-grid">
+      <div class="form-row"><label>OC</label><input type="text" id="regOc" placeholder="Autocompletado desde archivo base"></div>
+      <div class="form-row"><label>Predistribuido</label><div style="padding:10px 0;font-size:13px" id="regPredistribuido">—</div></div>
+    </div>
+
+    <div class="form-row">
+      <label>Nivel de inspección</label>
+      <select id="regNivel" onchange="recalcularMuestreo()">
+        <option value="II">Normal (II)</option>
+        <option value="I">Reducida (I)</option>
+        <option value="III">Estricta (III)</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>AQL Mayor</label>
+        <select id="regAqlMayor" onchange="recalcularMuestreo()">
+          <option value="1.0" selected>1.0</option>
+          <option value="1.5">1.5</option>
+          <option value="2.5">2.5</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>AQL Menor</label>
+        <select id="regAqlMenor" onchange="recalcularMuestreo()">
+          <option value="1.0">1.0</option>
+          <option value="1.5">1.5</option>
+          <option value="2.5" selected>2.5</option>
+        </select>
+      </div>
+    </div>
+    <div class="alert alert-info" id="regMuestraInfo" style="font-size:12px;padding:10px 13px"></div>
+
+    <div class="form-grid">
+      <div class="form-row"><label>Tamaño de muestra</label><input type="text" id="regTamanoMuestra" readonly style="background:var(--surface);font-weight:700"></div>
+      <div class="form-row"><label>Unidades auditadas</label><input type="number" min="0" id="regUndsAuditadas" oninput="recalcularResultado()"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:10px">Hallazgos / defectos encontrados</div>
+    <div id="regHallazgos"></div>
+    <button class="btn btn-secondary btn-sm" type="button" onclick="addHallazgoRow()">+ Agregar hallazgo</button>
+
+    <div class="divider"></div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:10px">Verificaciones adicionales</div>
+    <div class="form-grid">
+      <div class="form-row"><label>Insumos</label><select id="regInsumos"><option value="">Selecciona...</option><option value="CUMPLE">Cumple</option><option value="NO CUMPLE">No cumple</option><option value="NA">No aplica</option></select></div>
+      <div class="form-row"><label>Estampado</label><select id="regEstampado"><option value="">Selecciona...</option><option value="CUMPLE">Cumple</option><option value="NO CUMPLE">No cumple</option><option value="NA">No aplica</option></select></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Lavandería</label><select id="regLavanderia"><option value="">Selecciona...</option><option value="CUMPLE">Cumple</option><option value="NO CUMPLE">No cumple</option><option value="NA">No aplica</option></select></div>
+      <div class="form-row"><label>Bordado</label><select id="regBordado"><option value="">Selecciona...</option><option value="CUMPLE">Cumple</option><option value="NO CUMPLE">No cumple</option><option value="NA">No aplica</option></select></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Etiqueta</label><select id="regEtiqueta"><option value="">Selecciona...</option><option value="CUMPLE">Cumple</option><option value="NO CUMPLE">No cumple</option><option value="NA">No aplica</option></select></div>
+      <div class="form-row"><label>PVP</label><input type="text" id="regPvp"></div>
+    </div>
+    <div class="form-row"><label>Observaciones</label><textarea id="regObservaciones" rows="3" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:7px;font-family:var(--font);font-size:14px"></textarea></div>
+
+    <div class="divider"></div>
+    <div class="flex-between" style="margin-bottom:16px">
+      <div style="font-weight:700;font-size:14px">Resultado de la auditoría</div>
+      <span class="badge badge-gray" id="regResultadoBadge">—</span>
+    </div>
+    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px" id="regResultadoMotivos"></div>
+    <div style="font-size:13px;margin-bottom:12px"><strong>Total unidades defectuosas:</strong> <span id="regTotalDefectuosas">0</span></div>
+    <div id="regAlertaCancelacion" class="alert alert-error" style="display:none;font-weight:700;margin-bottom:16px"></div>
+
+    <div class="divider"></div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:10px">Notificar por correo a:</div>
+    <div id="regGruposCorreo" style="margin-bottom:16px"></div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" onclick="cerrarModalRegistro()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="btnGuardarRegistro" onclick="guardarRegistro()">Guardar registro de auditoría</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Reporte de auditoría (solo lectura, ajustable/eliminable por admin) -->
+<div id="modalReporte" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:12px">
+  <div class="card" style="width:100%;max-width:720px;margin:0;max-height:92vh;overflow-y:auto">
+    <div class="card-title" id="repTitulo">Reporte de auditoría</div>
+    <div class="card-sub" id="repSubtitulo" style="margin-bottom:16px"></div>
+    <div id="repAlertaAjuste" class="alert alert-info" style="display:none;font-size:12px;margin-bottom:12px"></div>
+    <div id="repContenido"></div>
+    <div class="divider"></div>
+    <div id="repAdminAjuste" style="display:none">
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px">Ajuste manual (negociación)</div>
+      <div class="form-row"><label>Motivo del ajuste</label><textarea id="repMotivoAjuste" rows="2" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:7px;font-family:var(--font);font-size:14px"></textarea></div>
+      <button class="btn btn-primary" id="btnAjustarAprobado" onclick="ajustarResultadoAprobado()">Cambiar resultado a Aprobado</button>
+      <div class="divider"></div>
+    </div>
+    <div id="repAdminEliminar" style="display:none;margin-bottom:16px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:var(--accent)">Zona de riesgo</div>
+      <button class="btn" style="background:#fde8e8;color:#b91c1c;border:1.5px solid #f3b4b4;width:100%" onclick="eliminarRegistroReporte()">🗑 Eliminar este registro (el auditor podrá volver a iniciarlo)</button>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('modalReporte').style.display='none'">Cerrar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
+
