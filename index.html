@@ -247,15 +247,17 @@ tbody td.center{text-align:center}
     <!-- RESUMEN PROVEEDOR -->
     <div id="provResumen" style="display:none;margin-top:8px">
       <div class="card" style="padding:18px 14px">
-        <div class="flex-between" style="margin-bottom:4px">
+        <div class="flex-between" style="margin-bottom:4px;flex-wrap:wrap;gap:10px">
           <div style="font-weight:700;font-size:15px">Mis auditorías</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input type="text" id="filtroRefReg" placeholder="Buscar REF" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:110px" oninput="renderMisAuds()">
+            <input type="text" id="filtroPaqReg" placeholder="Buscar PAQ" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:100px" oninput="renderMisAuds()">
             <button onclick="toggleHoraSugerida()" id="btnToggleHoraSug" class="btn" style="font-size:11px;padding:5px 10px;background:var(--surface);color:var(--ink);border:1.5px solid var(--border)">⏱ Ver hora sugerida</button>
             <label style="font-size:12px;color:var(--ink-soft)">Filtrar fecha:</label>
             <input type="date" id="filtroFechaReg" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderMisAuds()">
           </div>
         </div>
-        <div class="card-sub" style="margin-bottom:12px">Se muestran las solicitudes de hoy. Usa el filtro para ver otras fechas.</div>
+        <div class="card-sub" style="margin-bottom:12px">Se muestran las solicitudes de hoy. Usa el filtro para ver otras fechas, o busca por REF/PAQ en cualquier fecha.</div>
         <div class="tbl-wrap">
           <table>
             <thead>
@@ -306,10 +308,14 @@ tbody td.center{text-align:center}
           </div>
         </div>
         <!-- Filtros -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px;align-items:end">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px;align-items:end">
           <div class="form-row" style="margin-bottom:0">
             <label>Referencia</label>
             <input type="text" id="filtroRefAdmin" placeholder="Buscar REF" oninput="renderAdminTablas(true)">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>PAQ</label>
+            <input type="text" id="filtroPaqAdmin" placeholder="Buscar PAQ" oninput="renderAdminTablas(true)">
           </div>
           <div class="form-row" style="margin-bottom:0">
             <label>Fecha registro</label>
@@ -442,10 +448,13 @@ tbody td.center{text-align:center}
         <button class="btn btn-primary" onclick="registrarProveedor()">Crear cuenta</button>
       </div>
       <div class="card" style="padding:18px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <div style="font-weight:700;font-size:14px">Proveedores registrados</div>
-          <button class="btn btn-secondary btn-sm" onclick="toggleEmail2Col()" id="btnToggleEmail2" style="font-size:11px">👁 Email adicional</button>
-          <button class="btn btn-secondary btn-sm" onclick="toggleCorreosAudCol()" id="btnToggleCorreosAud" style="font-size:11px">👁 Correos auditorías</button>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <input type="text" id="filtroProvCatalogo" placeholder="Buscar proveedor" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:150px" oninput="renderAdminTablas()">
+            <button class="btn btn-secondary btn-sm" onclick="toggleEmail2Col()" id="btnToggleEmail2" style="font-size:11px">👁 Email adicional</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleCorreosAudCol()" id="btnToggleCorreosAud" style="font-size:11px">👁 Correos auditorías</button>
+          </div>
         </div>
         <div class="tbl-wrap">
           <table>
@@ -605,9 +614,12 @@ tbody td.center{text-align:center}
 <div class="screen" id="screenAuditor">
   <div class="main">
     <div class="card" style="padding:18px 14px">
-      <div class="flex-between" style="margin-bottom:14px">
+      <div class="flex-between" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div style="font-family:var(--head);font-size:19px">Mis auditorías asignadas</div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="text" id="filtroRefAuditor" placeholder="Buscar REF" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:110px" oninput="renderAudsAuditor()">
+          <input type="text" id="filtroProvAuditor" placeholder="Buscar proveedor" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:130px" oninput="renderAudsAuditor()">
+          <input type="text" id="filtroPaqAuditor" placeholder="Buscar PAQ" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:100px" oninput="renderAudsAuditor()">
           <label style="font-size:12px;color:var(--ink-soft)">Fecha:</label>
           <input type="date" id="filtroFechaAuditor" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderAudsAuditor()">
           <button class="refresh-btn" onclick="cargarAudsAuditor()">🔄 Actualizar</button>
@@ -1423,7 +1435,16 @@ async function cargarMisAuds(){
 
 function renderMisAuds(){
   const filtroFecha=document.getElementById('filtroFechaReg')?.value||todayStr();
-  let auds=[...S.misAuds].filter(a=>a.registrado===filtroFecha);
+  const frefReg=norm(document.getElementById('filtroRefReg')?.value||'');
+  const fpaqReg=norm(document.getElementById('filtroPaqReg')?.value||'');
+  let auds=[...S.misAuds].filter(a=>{
+    if(frefReg||fpaqReg){
+      if(frefReg&&!norm(a.ref||'').includes(frefReg)) return false;
+      if(fpaqReg&&!norm((a.paq||'').toString()).includes(fpaqReg)) return false;
+      return true;
+    }
+    return a.registrado===filtroFecha;
+  });
   auds.sort((a,b)=>{
     const cm=norm(a.marca||'').localeCompare(norm(b.marca||''));if(cm)return cm;
     const cq=norm((a.paq||'').toString()).localeCompare(norm((b.paq||'').toString()));if(cq)return cq;
@@ -1593,6 +1614,7 @@ function renderAdminTablas(desactivarPendientes){
   const fm=document.getElementById('filtroMarca')?.value||'';
   const fp=norm(document.getElementById('filtroProvAdmin')?.value||'');
   const fref=norm(document.getElementById('filtroRefAdmin')?.value||'');
+  const fpaqAdmin=norm(document.getElementById('filtroPaqAdmin')?.value||'');
 
   const activas=S.auditorias.filter(a=>a.estado!=='Cancelada');
   // Stats (hoy)
@@ -1611,7 +1633,11 @@ function renderAdminTablas(desactivarPendientes){
   const fauds=getSelectedAuditores();
   let filtered=activas.filter(a=>{
     if(S._filtroPendientes) return !a.auditor; // solo sin auditor, sin restricción de fecha
-    if (fref){ if(!norm(a.ref||'').includes(fref)) return false; }
+    if (fref||fpaqAdmin){
+      // Si hay filtro de REF y/o PAQ, busca en todos los registros sin importar fecha
+      if (fref&&!norm(a.ref||'').includes(fref)) return false;
+      if (fpaqAdmin&&!norm((a.paq||'').toString()).includes(fpaqAdmin)) return false;
+    }
     else{
       // Si hay filtro de fecha audit, busca en todos los registros sin importar cuándo se solicitó
       if (ffa){ if((a.fecha_audit||'')!==ffa) return false; }
@@ -1681,11 +1707,16 @@ function renderAdminTablas(desactivarPendientes){
     tfoot.innerHTML=footHtml;
   }
 
-  // Tabla proveedores — siempre todos sin filtro de fecha
+  // Tabla proveedores — siempre todos sin filtro de fecha (pero sí respeta el buscador de proveedor)
+  const fpCatalogo=norm(document.getElementById('filtroProvCatalogo')?.value||'');
+  const proveedoresFiltrados=fpCatalogo?S.proveedores.filter(p=>norm(p.nombre||'').includes(fpCatalogo)):S.proveedores;
   const tp=document.getElementById('tblProveedores');tp.innerHTML='';
-  document.getElementById('emptyProvMsg').style.display=S.proveedores.length?'none':'block';
-  S.proveedores.forEach((p,i)=>{
-    const solCount=S.auditorias.filter(a=>a.proveedor===p.nombre&&a.estado!=='Cancelada').length;
+  document.getElementById('emptyProvMsg').style.display=proveedoresFiltrados.length?'none':'block';
+  proveedoresFiltrados.forEach((p,i)=>{
+    // Comparación normalizada (no exacta): si el nombre del proveedor se editó despues de que
+    // ya existieran auditorías guardadas con el nombre anterior, o si hay diferencias de
+    // mayúsculas/espacios, la comparación exacta anterior (===) hacía que el conteo diera 0.
+    const solCount=S.auditorias.filter(a=>norm(a.proveedor||'')===norm(p.nombre||'')&&a.estado!=='Cancelada').length;
     const tr=document.createElement('tr');
     const email2Visible=document.getElementById('btnToggleEmail2')?.dataset.visible==='1';
     const correosAudVisible=document.getElementById('btnToggleCorreosAud')?.dataset.visible==='1';
@@ -1831,11 +1862,15 @@ function filtrarActivas(){
   const ffaFiltro=(document.getElementById('filtroFechaAudit')?.value||'').trim();
   const fm=(document.getElementById('filtroMarca')?.value||'').trim();
   const frefFiltro=norm(document.getElementById('filtroRefAdmin')?.value||'');
+  const fpaqFiltro=norm(document.getElementById('filtroPaqAdmin')?.value||'');
   const fauds=getSelectedAuditores();
   return S.auditorias.filter(a=>{
     if(a.estado==='Cancelada') return false;
     if(S._filtroPendientes) return !a.auditor;
-    if(frefFiltro){ if(!norm(a.ref||'').includes(frefFiltro)) return false; }
+    if(frefFiltro||fpaqFiltro){
+      if(frefFiltro&&!norm(a.ref||'').includes(frefFiltro)) return false;
+      if(fpaqFiltro&&!norm((a.paq||'').toString()).includes(fpaqFiltro)) return false;
+    }
     else{
       if(ffaFiltro){ if((a.fecha_audit||'')!==ffaFiltro) return false; }
       else { if(a.registrado!==fa) return false; }
@@ -2349,7 +2384,19 @@ async function cargarAudsAuditor(){
 
 function renderAudsAuditor(){
   const filtroFecha=document.getElementById('filtroFechaAuditor')?.value||todayStr();
-  let auds=S.auditorias.filter(a=>a.fecha_audit===filtroFecha);
+  const frefAud=norm(document.getElementById('filtroRefAuditor')?.value||'');
+  const fprovAud=norm(document.getElementById('filtroProvAuditor')?.value||'');
+  const fpaqAud=norm(document.getElementById('filtroPaqAuditor')?.value||'');
+  let auds=S.auditorias.filter(a=>{
+    if(frefAud||fpaqAud){
+      if(frefAud&&!norm(a.ref||'').includes(frefAud)) return false;
+      if(fpaqAud&&!norm((a.paq||'').toString()).includes(fpaqAud)) return false;
+    } else {
+      if(a.fecha_audit!==filtroFecha) return false;
+    }
+    if(fprovAud&&!norm(a.proveedor||'').includes(fprovAud)) return false;
+    return true;
+  });
   auds.sort((a,b)=>(a.hora_admin||a.hora||'').localeCompare(b.hora_admin||b.hora||''));
   const tbody=document.getElementById('tblAuditorBody');
   tbody.innerHTML='';
@@ -2973,11 +3020,12 @@ async function guardarRegistro(){
       observaciones:document.getElementById('regObservaciones').value||'',estado:ctx.resultado.estado,
       inicio_registro:ctx.inicioRegistro||null
     };
-    await sb('/rest/v1/auditoria_registro',{method:'POST',body,prefer:'return=representation'});
+    const insertado=await sb('/rest/v1/auditoria_registro',{method:'POST',body,prefer:'return=representation'});
+    const registroId=insertado&&insertado[0]&&insertado[0].id;
     for(const id of ctx.seleccionados){ await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{resultado_auditoria:ctx.resultado.estado}}); }
     toast('Registro de auditoria guardado ('+ctx.resultado.estado+')',true);
     const gruposSeleccionados=[...document.querySelectorAll('#regGruposCorreo .chk-grupo-correo:checked')].map(c=>c.value);
-    enviarCorreoAuditoria(a,body,gruposSeleccionados);
+    enviarCorreoAuditoria(a,body,gruposSeleccionados,registroId);
     cerrarModalRegistro();
     await cargarAudsAuditor();
   }catch(e){toast('Error al guardar el registro.');}
@@ -3010,6 +3058,18 @@ function renderModalReporte(){
   const ajusteHtml=r.ajustado_manualmente
     ?'<div class="alert alert-info" style="font-size:12px;margin-top:10px">Resultado tecnico original: <strong>RECHAZADO</strong>. Ajustado manualmente a Aprobado por '+(r.ajustado_por||'-')+' el '+(r.ajustado_en||'').toString().slice(0,16).replace('T',' ')+'. Motivo: '+(r.ajustado_motivo||'-')+'</div>'
     :'';
+  const correoResultadoHtml=(r.correos_enviados||r.correos_fallidos)
+    ?'<div style="font-size:12px;margin-top:6px">'+
+      (r.correos_enviados?'<div style="color:var(--green)">✓ Correo de resultado enviado a: '+r.correos_enviados+'</div>':'<div style="color:var(--ink-soft)">Correo de resultado: sin destinatarios configurados.</div>')+
+      (r.correos_fallidos?'<div style="color:var(--accent);margin-top:2px">⚠ Error enviando a: '+r.correos_fallidos+'</div>':'')+
+      '</div>'
+    :'<div style="font-size:12px;margin-top:6px;color:var(--ink-soft)">Confirmacion de envio de correo no disponible (registro anterior a esta funcion, o el correo aun se esta enviando).</div>';
+  const correoAjusteHtml=r.ajustado_manualmente&&(r.correos_enviados_ajuste||r.correos_fallidos_ajuste)
+    ?'<div style="font-size:12px;margin-top:6px">'+
+      (r.correos_enviados_ajuste?'<div style="color:var(--green)">✓ Correo de ajuste enviado a: '+r.correos_enviados_ajuste+'</div>':'')+
+      (r.correos_fallidos_ajuste?'<div style="color:var(--accent);margin-top:2px">⚠ Error enviando ajuste a: '+r.correos_fallidos_ajuste+'</div>':'')+
+      '</div>'
+    :'';
   document.getElementById('repContenido').innerHTML=
     '<div class="form-grid"><div><strong>OC:</strong> '+(r.oc_om||'-')+'</div><div><strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'</div></div>'+
     '<div style="margin:10px 0;font-size:13px"><strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'</div>'+
@@ -3021,6 +3081,7 @@ function renderModalReporte(){
     '<div style="margin-top:8px;font-size:13px"><strong>PVP:</strong> '+(r.pvp||'-')+'</div>'+
     '<div style="margin-top:8px;font-size:13px"><strong>Observaciones:</strong> '+(r.observaciones||'-')+'</div>'+
     '<div class="divider"></div><div class="flex-between"><div style="font-weight:700">Resultado</div><span class="badge '+(resultadoEfectivo==='Aprobado'?'badge-green':'badge-red')+'">'+resultadoEfectivo+'</span></div>'+
+    correoResultadoHtml+correoAjusteHtml+
     ajusteHtml;
   document.getElementById('repAlertaAjuste').style.display='none';
   const panelAdmin=document.getElementById('repAdminAjuste');
@@ -3190,16 +3251,25 @@ async function enviarCorreoAjusteResultado(r){
       });
     }catch(eGrp){ console.warn('No se pudieron leer los correos de los grupos internos.',eGrp); }
     const unicos=[...new Set(destinatarios.map(e=>e.trim()).filter(Boolean))];
-    if(!unicos.length){ console.warn('No se envio el correo de ajuste: no hay destinatarios configurados.'); return; }
+    if(!unicos.length){
+      console.warn('No se envio el correo de ajuste: no hay destinatarios configurados.');
+      if(r.id){ try{ await sb('/rest/v1/auditoria_registro?id=eq.'+r.id,{method:'PATCH',body:{correos_enviados_ajuste:'',correos_fallidos_ajuste:''}}); }catch(ePatch0){} }
+      return;
+    }
     const asunto='Ajuste de resultado de auditoria - '+r.proveedor+' - '+(r.referencia||'')+' (Aprobado)';
     const html=tplAjusteResultado(r);
+    const exitosos=[],fallidos=[];
     for(const email of unicos){
-      try{ await sendBrevo(email,r.proveedor,asunto,html); }
-      catch(eIndividual){ console.warn('Error enviando correo de ajuste de resultado a '+email,eIndividual); }
+      try{ await sendBrevo(email,r.proveedor,asunto,html); exitosos.push(email); }
+      catch(eIndividual){ console.warn('Error enviando correo de ajuste de resultado a '+email,eIndividual); fallidos.push(email); }
+    }
+    if(r.id){
+      try{ await sb('/rest/v1/auditoria_registro?id=eq.'+r.id,{method:'PATCH',body:{correos_enviados_ajuste:exitosos.join(', '),correos_fallidos_ajuste:fallidos.join(', ')}}); }
+      catch(ePatch){ console.warn('No se pudo guardar la confirmacion de correos del ajuste.',ePatch); }
     }
   }catch(e){ console.warn('No se pudo enviar el correo de ajuste de resultado.',e); }
 }
-async function enviarCorreoAuditoria(a, registro, grupos){
+async function enviarCorreoAuditoria(a, registro, grupos, registroId){
   try{
     const destinatarios=[];
     try{
@@ -3222,12 +3292,21 @@ async function enviarCorreoAuditoria(a, registro, grupos){
       }catch(eGrp){ console.warn('No se pudieron leer los correos de los grupos internos.',eGrp); }
     }
     const unicos=[...new Set(destinatarios.map(e=>e.trim()).filter(Boolean))];
-    if(!unicos.length){ console.warn('No se envio el correo de resultado: no hay destinatarios configurados (correo del proveedor y/o correos de los grupos internos estan vacios).'); return; }
+    if(!unicos.length){
+      console.warn('No se envio el correo de resultado: no hay destinatarios configurados (correo del proveedor y/o correos de los grupos internos estan vacios).');
+      if(registroId){ try{ await sb('/rest/v1/auditoria_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:'',correos_fallidos:''}}); }catch(ePatch0){} }
+      return;
+    }
     const asunto='Resultado de auditoria - '+a.proveedor+' - '+a.ref+' ('+registro.estado+')';
     const html=tplReporteAuditoria(a,registro);
+    const exitosos=[],fallidos=[];
     for(const email of unicos){
-      try{ await sendBrevo(email,a.proveedor,asunto,html); }
-      catch(eIndividual){ console.warn('Error enviando correo de resultado de auditoria a '+email,eIndividual); }
+      try{ await sendBrevo(email,a.proveedor,asunto,html); exitosos.push(email); }
+      catch(eIndividual){ console.warn('Error enviando correo de resultado de auditoria a '+email,eIndividual); fallidos.push(email); }
+    }
+    if(registroId){
+      try{ await sb('/rest/v1/auditoria_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:exitosos.join(', '),correos_fallidos:fallidos.join(', ')}}); }
+      catch(ePatch){ console.warn('No se pudo guardar la confirmacion de correos enviados.',ePatch); }
     }
   }catch(e){ console.warn('No se pudo enviar el correo de resultado de auditoria.',e); }
 }
