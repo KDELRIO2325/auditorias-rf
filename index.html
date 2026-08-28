@@ -2143,7 +2143,7 @@ async function ejecutarExport(){
       'Estado':a.estado,'Registrado':a.registrado,'Auditor':a.auditor||'',
       'OC':r?(r.oc_om||''):'','Predistribuido':r?(r.predistribuido||''):'',
       'Nivel inspeccion':r?(r.nivel_inspeccion||''):'','AQL Mayor':r?(r.aql_mayor||''):'','AQL Menor':r?(r.aql_menor||''):'',
-      'Letra codigo':r?(r.letra_codigo||''):'','Tamano muestra':r?(r.tamano_muestra||''):'','Unds auditadas':r?(r.unds_auditadas||''):'',
+      'Unds total ppto':r?(r.cant_lote||''):'','Letra codigo':r?(r.letra_codigo||''):'','Tamano muestra':r?(r.tamano_muestra||''):'','Unds auditadas':r?(r.unds_auditadas||''):'',
       'Unidades defectuosas':r?(r.unidades_defectuosas||''):'','Hallazgos':hallazgosTxt,
       'Insumos':r?(r.insumos||''):'','Estampado':r?(r.estampado||''):'','Lavanderia':r?(r.lavanderia||''):'',
       'Bordado':r?(r.bordado||''):'','Etiqueta':r?(r.etiqueta||''):'','PVP':r?(r.pvp||''):'',
@@ -3078,7 +3078,7 @@ function renderModalReporte(){
     '<div class="form-grid"><div><strong>OC:</strong> '+(r.oc_om||'-')+'</div><div><strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'</div></div>'+
     '<div style="margin:10px 0;font-size:13px"><strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'</div>'+
     '<div style="margin:10px 0;font-size:13px"><strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%</div>'+
-    '<div style="margin:10px 0;font-size:13px"><strong>Letra:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+'</div>'+
+    '<div style="margin:10px 0;font-size:13px"><strong>Unds total ppto:</strong> '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+' &nbsp; <strong>Letra:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+'</div>'+
     '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Hallazgos</div>'+hallazgosHtml+
     '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Verificaciones adicionales</div>'+
     '<div style="font-size:13px">Insumos: '+(r.insumos||'-')+' | Estampado: '+(r.estampado||'-')+' | Lavanderia: '+(r.lavanderia||'-')+' | Bordado: '+(r.bordado||'-')+' | Etiqueta: '+(r.etiqueta||'-')+'</div>'+
@@ -3157,7 +3157,7 @@ function tplReporteAuditoria(a, r){
         '<strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'<br>'+
         '<strong>OC:</strong> '+(r.oc_om||'-')+' &nbsp; <strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'<br>'+
         '<strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%<br>'+
-        '<strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
+        '<strong>Unds total ppto:</strong> '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+' &nbsp; <strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
       '</td></tr>'+
     '</table>'+
     '<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1a1a2e;">Hallazgos</p>'+
@@ -3212,7 +3212,7 @@ function tplAjusteResultado(r){
         '<strong>Fecha auditoria:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'<br>'+
         '<strong>OC:</strong> '+(r.oc_om||'-')+' &nbsp; <strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'<br>'+
         '<strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%<br>'+
-        '<strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
+        '<strong>Unds total ppto:</strong> '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+' &nbsp; <strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
       '</td></tr>'+
     '</table>'+
     '<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1a1a2e;">Hallazgos</p>'+
