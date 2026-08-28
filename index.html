@@ -1713,10 +1713,14 @@ function renderAdminTablas(desactivarPendientes){
   const tp=document.getElementById('tblProveedores');tp.innerHTML='';
   document.getElementById('emptyProvMsg').style.display=proveedoresFiltrados.length?'none':'block';
   proveedoresFiltrados.forEach((p,i)=>{
-    // Comparación normalizada (no exacta): si el nombre del proveedor se editó despues de que
-    // ya existieran auditorías guardadas con el nombre anterior, o si hay diferencias de
-    // mayúsculas/espacios, la comparación exacta anterior (===) hacía que el conteo diera 0.
-    const solCount=S.auditorias.filter(a=>norm(a.proveedor||'')===norm(p.nombre||'')&&a.estado!=='Cancelada').length;
+    // Comparación normalizada contra usuario O nombre: en la práctica auditorias.proveedor
+    // guarda el USUARIO (login) del proveedor, no su nombre completo (ver cargarMisAuds()),
+    // así que comparar solo contra p.nombre fallaba para cualquier proveedor donde usuario
+    // y nombre son distintos (el caso normal, ej. usuario "TRADING" / nombre "Ci trading express").
+    const solCount=S.auditorias.filter(a=>{
+      const apNorm=norm(a.proveedor||'');
+      return (apNorm===norm(p.usuario||'')||apNorm===norm(p.nombre||''))&&a.estado!=='Cancelada';
+    }).length;
     const tr=document.createElement('tr');
     const email2Visible=document.getElementById('btnToggleEmail2')?.dataset.visible==='1';
     const correosAudVisible=document.getElementById('btnToggleCorreosAud')?.dataset.visible==='1';
@@ -3231,8 +3235,9 @@ async function enviarCorreoAjusteResultado(r){
   try{
     const destinatarios=[];
     try{
-      const provRows=await sb('/rest/v1/proveedores?select=email,email2,correos_auditoria&nombre=eq.'+encodeURIComponent(r.proveedor));
-      const prov=provRows&&provRows[0];
+      const provRows=await sb('/rest/v1/proveedores?select=usuario,nombre,email,email2,correos_auditoria');
+      const rProvNorm=norm(r.proveedor||'');
+      const prov=(provRows||[]).find(p=>norm(p.usuario||'')===rProvNorm||norm(p.nombre||'')===rProvNorm);
       if(prov){
         if(prov.email) destinatarios.push(prov.email);
         if(prov.email2) destinatarios.push(prov.email2);
@@ -3273,8 +3278,9 @@ async function enviarCorreoAuditoria(a, registro, grupos, registroId){
   try{
     const destinatarios=[];
     try{
-      const provRows=await sb('/rest/v1/proveedores?select=email,email2,correos_auditoria&nombre=eq.'+encodeURIComponent(a.proveedor));
-      const prov=provRows&&provRows[0];
+      const provRows=await sb('/rest/v1/proveedores?select=usuario,nombre,email,email2,correos_auditoria');
+      const aProvNorm=norm(a.proveedor||'');
+      const prov=(provRows||[]).find(p=>norm(p.usuario||'')===aProvNorm||norm(p.nombre||'')===aProvNorm);
       if(prov){
         if(prov.email) destinatarios.push(prov.email);
         if(prov.email2) destinatarios.push(prov.email2);
