@@ -563,16 +563,55 @@ tbody td.center{text-align:center}
     <!-- TAB: Correos internos (equipo Rifle/Moft para notificacion automatica de auditorias) -->
     <div class="tab-panel" id="tabCorreos">
       <div class="card">
-        <div class="card-title">Correos internos por grupo</div>
-        <div class="card-sub">Estos correos se notifican automáticamente cuando el auditor guarda un registro de auditoría y marca el grupo correspondiente. Varios correos por grupo, separados por coma.</div>
-        <div class="form-row"><label>Producción</label><input type="text" id="grpProduccion" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
-        <div class="form-row"><label>Diseño Rifle</label><input type="text" id="grpDisenoRifle" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
-        <div class="form-row"><label>Diseño Moft</label><input type="text" id="grpDisenoMoft" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
-        <div class="form-row"><label>Planeación Rifle</label><input type="text" id="grpPlaneacionRifle" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
-        <div class="form-row"><label>Planeación Moft</label><input type="text" id="grpPlaneacionMoft" placeholder="correo1@empresa.com, correo2@empresa.com"></div>
+        <div class="card-title">Registrar correo interno</div>
+        <div class="card-sub">Estos correos se notifican automáticamente cuando el auditor guarda un registro de auditoría y marca el grupo correspondiente. Registra un correo a la vez.</div>
+        <div class="form-grid">
+          <div class="form-row"><label>Grupo</label>
+            <select id="ciGrupo">
+              <option value="Producción">Producción</option>
+              <option value="Diseño Rifle">Diseño Rifle</option>
+              <option value="Diseño Moft">Diseño Moft</option>
+              <option value="Planeación Rifle">Planeación Rifle</option>
+              <option value="Planeación Moft">Planeación Moft</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Correo</label><input type="email" id="ciCorreo" placeholder="correo@empresa.com"></div>
+        </div>
         <div id="grpCorreoError" class="alert alert-error" style="display:none"></div>
         <div id="grpCorreoOk" class="alert alert-success" style="display:none"></div>
-        <button class="btn btn-primary" onclick="guardarGruposCorreo()">Guardar correos</button>
+        <button class="btn btn-primary" onclick="registrarCorreoInterno()">Agregar correo</button>
+      </div>
+      <div class="card" style="padding:18px 14px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px">Correos internos registrados</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Grupo</th><th>Correo</th><th>Creado</th><th>Acciones</th></tr></thead>
+            <tbody id="tblCorreosInternos"></tbody>
+          </table>
+        </div>
+        <p id="emptyCorreosMsg" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay correos internos registrados.</p>
+      </div>
+    </div>
+    <!-- MODAL: Editar correo interno -->
+    <div id="modalEditCorreoInterno" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:16px">
+      <div class="card" style="width:100%;max-width:400px;margin:0">
+        <div class="card-title">Editar correo interno</div>
+        <input type="hidden" id="editCiId">
+        <div class="form-row"><label>Grupo</label>
+          <select id="editCiGrupo">
+            <option value="Producción">Producción</option>
+            <option value="Diseño Rifle">Diseño Rifle</option>
+            <option value="Diseño Moft">Diseño Moft</option>
+            <option value="Planeación Rifle">Planeación Rifle</option>
+            <option value="Planeación Moft">Planeación Moft</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Correo</label><input type="email" id="editCiCorreo"></div>
+        <div id="editCiError" class="alert alert-error" style="display:none"></div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn btn-secondary" onclick="closeModal('modalEditCorreoInterno')">Cancelar</button>
+          <button class="btn btn-primary" style="flex:1" onclick="guardarEditCorreoInterno()">Guardar</button>
+        </div>
       </div>
     </div>
 
@@ -2654,35 +2693,71 @@ async function guardarEditDefecto(){
 /* ── Correos internos por grupo (admin: tab Correos internos) ──
    Se usan para notificar automaticamente al equipo Rifle/Moft cuando el
    auditor guarda un registro de auditoria (ver enviarCorreoAuditoria). */
-const GRUPOS_CORREO_MAP=[
-  {grupo:'Producción',id:'grpProduccion'},
-  {grupo:'Diseño Rifle',id:'grpDisenoRifle'},
-  {grupo:'Diseño Moft',id:'grpDisenoMoft'},
-  {grupo:'Planeación Rifle',id:'grpPlaneacionRifle'},
-  {grupo:'Planeación Moft',id:'grpPlaneacionMoft'}
-];
+function esEmailValido(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v||'').trim()); }
 async function cargarGruposCorreo(){
   try{
-    const rows=await sb('/rest/v1/grupos_correo?select=*');
+    const rows=await sb('/rest/v1/correos_internos?select=*&order=grupo.asc,correo.asc');
     S.gruposCorreo=rows||[];
-    GRUPOS_CORREO_MAP.forEach(m=>{
-      const row=S.gruposCorreo.find(r=>r.grupo===m.grupo);
-      const el=document.getElementById(m.id);
-      if(el) el.value=(row&&row.correos)||'';
-    });
+    renderTablaCorreosInternos();
   }catch(e){}
 }
-async function guardarGruposCorreo(){
+function renderTablaCorreosInternos(){
+  const tb=document.getElementById('tblCorreosInternos');if(!tb)return;
+  tb.innerHTML='';
+  const emptyEl=document.getElementById('emptyCorreosMsg');
+  if(emptyEl) emptyEl.style.display=S.gruposCorreo.length?'none':'block';
+  S.gruposCorreo.forEach((c,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+c.grupo+'</td><td>'+c.correo+'</td>'+
+      '<td style="white-space:nowrap">'+(c.creado_en?c.creado_en.toString().slice(0,10):'—')+'</td>'+
+      '<td style="white-space:nowrap;display:flex;gap:6px">'+
+        '<button class="btn btn-sm btn-secondary" onclick="abrirEditCorreoInterno(\''+c.id+'\')">✏️</button>'+
+        '<button class="del-btn" onclick="eliminarCorreoInterno(\''+c.id+'\',\''+c.correo+'\')">🗑</button>'+
+      '</td>';
+    tb.appendChild(tr);
+  });
+}
+async function registrarCorreoInterno(){
   const errEl=document.getElementById('grpCorreoError'),okEl=document.getElementById('grpCorreoOk');
   errEl.style.display='none';okEl.style.display='none';
+  const grupo=document.getElementById('ciGrupo').value;
+  const correo=document.getElementById('ciCorreo').value.trim();
+  if(!esEmailValido(correo)){errEl.textContent='Ingresa un correo valido.';errEl.style.display='block';return;}
   try{
-    for(const m of GRUPOS_CORREO_MAP){
-      const val=(document.getElementById(m.id).value||'').trim();
-      await sb('/rest/v1/grupos_correo?grupo=eq.'+encodeURIComponent(m.grupo),{method:'PATCH',body:{correos:val,updated_at:new Date().toISOString()}});
-    }
-    okEl.textContent='Correos guardados.';okEl.style.display='block';
+    await sb('/rest/v1/correos_internos',{method:'POST',body:{grupo,correo},prefer:'return=representation'});
+    document.getElementById('ciCorreo').value='';
+    okEl.textContent='Correo agregado a '+grupo+'.';okEl.style.display='block';
     await cargarGruposCorreo();
-  }catch(e){ errEl.textContent='Error al guardar: '+e.message;errEl.style.display='block'; }
+  }catch(e){
+    errEl.textContent=(e.message&&e.message.toLowerCase().includes('duplicate'))?'Ese correo ya esta registrado en ese grupo.':'Error al guardar: '+e.message;
+    errEl.style.display='block';
+  }
+}
+function abrirEditCorreoInterno(id){
+  const c=S.gruposCorreo.find(x=>String(x.id)===String(id));if(!c)return;
+  document.getElementById('editCiId').value=c.id;
+  document.getElementById('editCiGrupo').value=c.grupo;
+  document.getElementById('editCiCorreo').value=c.correo;
+  document.getElementById('editCiError').style.display='none';
+  document.getElementById('modalEditCorreoInterno').style.display='flex';
+}
+async function guardarEditCorreoInterno(){
+  const id=document.getElementById('editCiId').value;
+  const grupo=document.getElementById('editCiGrupo').value;
+  const correo=document.getElementById('editCiCorreo').value.trim();
+  const errEl=document.getElementById('editCiError');errEl.style.display='none';
+  if(!esEmailValido(correo)){errEl.textContent='Ingresa un correo valido.';errEl.style.display='block';return;}
+  try{
+    await sb('/rest/v1/correos_internos?id=eq.'+id,{method:'PATCH',body:{grupo,correo}});
+    closeModal('modalEditCorreoInterno');await cargarGruposCorreo();toast('Correo actualizado',true);
+  }catch(e){errEl.textContent='Error: '+e.message;errEl.style.display='block';}
+}
+async function eliminarCorreoInterno(id,correo){
+  if(!confirm('¿Eliminar el correo "'+correo+'"?')) return;
+  try{
+    await sb('/rest/v1/correos_internos?id=eq.'+id,{method:'DELETE'});
+    await cargarGruposCorreo();toast('Correo eliminado');
+  }catch(e){toast('Error al eliminar.');}
 }
 
 /* ── Registro de auditoria (auditor) ── */
@@ -3052,7 +3127,7 @@ function renderModalReporte(){
   const r=S.reporteActual.registro;
   const resultadoEfectivo=r.ajustado_manualmente?'Aprobado':r.estado;
   document.getElementById('repTitulo').textContent='Reporte auditoria '+(r.proveedor||'');
-  document.getElementById('repSubtitulo').textContent=(r.marca||'')+' - '+(r.referencia||'')+' - '+(r.color||'')+' - Paq '+(r.paquete||'')+' - '+(r.canales||'');
+  document.getElementById('repSubtitulo').textContent=(r.marca||'')+' - '+(r.referencia||'')+' - '+(r.color||'')+' - Paq '+(r.paquete||'')+' - '+(r.canales||'')+' - Unds total ppto: '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-');
   const hallazgosHtml=(r.hallazgos&&r.hallazgos.length)
     ?r.hallazgos.map(h=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">'+
         '<span>'+h.defecto_nombre+' <span class="badge '+(h.criterio==='CRITICO'?'badge-red':(h.criterio==='MAYOR'?'badge-blue':'badge-gray'))+'">'+h.criterio+'</span> x'+h.cantidad+'</span>'+
@@ -3078,7 +3153,7 @@ function renderModalReporte(){
     '<div class="form-grid"><div><strong>OC:</strong> '+(r.oc_om||'-')+'</div><div><strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'</div></div>'+
     '<div style="margin:10px 0;font-size:13px"><strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'</div>'+
     '<div style="margin:10px 0;font-size:13px"><strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%</div>'+
-    '<div style="margin:10px 0;font-size:13px"><strong>Unds total ppto:</strong> '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+' &nbsp; <strong>Letra:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+'</div>'+
+    '<div style="margin:10px 0;font-size:13px"><strong>Letra:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+'</div>'+
     '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Hallazgos</div>'+hallazgosHtml+
     '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Verificaciones adicionales</div>'+
     '<div style="font-size:13px">Insumos: '+(r.insumos||'-')+' | Estampado: '+(r.estampado||'-')+' | Lavanderia: '+(r.lavanderia||'-')+' | Bordado: '+(r.bordado||'-')+' | Etiqueta: '+(r.etiqueta||'-')+'</div>'+
@@ -3151,13 +3226,13 @@ function tplReporteAuditoria(a, r){
   '<tr><td style="padding:32px 36px 28px;">'+
     '<p style="margin:0 0 6px;font-size:12px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">Auditoria registrada</p>'+
     '<h1 style="margin:0 0 6px;font-family:Georgia,serif;font-size:22px;color:#1a1a2e;">'+(a.proveedor||'')+'</h1>'+
-    '<p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;">'+(a.marca||'')+' — '+(r.referencia||'')+' — '+(r.color||'')+' — Paq '+(r.paquete||'')+' — '+(r.canales||'')+'</p>'+
+    '<p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;">'+(a.marca||'')+' — '+(r.referencia||'')+' — '+(r.color||'')+' — Paq '+(r.paquete||'')+' — '+(r.canales||'')+' — <strong>Unds total ppto: '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+'</strong></p>'+
     '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f5f2;border:1px solid #e2ddd8;border-radius:8px;margin-bottom:20px;">'+
       '<tr><td style="padding:16px 20px;font-size:13px;color:#1a1a2e;line-height:1.8;">'+
         '<strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'<br>'+
         '<strong>OC:</strong> '+(r.oc_om||'-')+' &nbsp; <strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'<br>'+
         '<strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%<br>'+
-        '<strong>Unds total ppto:</strong> '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+' &nbsp; <strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
+        '<strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
       '</td></tr>'+
     '</table>'+
     '<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1a1a2e;">Hallazgos</p>'+
@@ -3198,7 +3273,7 @@ function tplAjusteResultado(r){
   '<tr><td style="padding:32px 36px 28px;">'+
     '<p style="margin:0 0 6px;font-size:12px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">Auditoria ajustada manualmente</p>'+
     '<h1 style="margin:0 0 6px;font-family:Georgia,serif;font-size:22px;color:#1a1a2e;">'+(r.proveedor||'')+'</h1>'+
-    '<p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;">'+(r.marca||'')+' — '+(r.referencia||'')+' — '+(r.color||'')+' — Paq '+(r.paquete||'')+' — '+(r.canales||'')+'</p>'+
+    '<p style="margin:0 0 20px;font-size:14px;color:#4a4a6a;">'+(r.marca||'')+' — '+(r.referencia||'')+' — '+(r.color||'')+' — Paq '+(r.paquete||'')+' — '+(r.canales||'')+' — <strong>Unds total ppto: '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+'</strong></p>'+
     '<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf3f2;border:1px solid #f3c9c4;border-radius:8px;margin-bottom:20px;">'+
       '<tr><td style="padding:16px 20px;font-size:13px;color:#1a1a2e;line-height:1.8;">'+
         '<strong>Resultado tecnico original:</strong> <span style="color:#c8433a;font-weight:700">RECHAZADO</span><br>'+
@@ -3212,7 +3287,7 @@ function tplAjusteResultado(r){
         '<strong>Fecha auditoria:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+'<br>'+
         '<strong>OC:</strong> '+(r.oc_om||'-')+' &nbsp; <strong>Predistribuido:</strong> '+(r.predistribuido||'-')+'<br>'+
         '<strong>Nivel:</strong> '+(r.nivel_inspeccion||'-')+' &nbsp; <strong>AQL Mayor:</strong> '+(r.aql_mayor||'-')+'% &nbsp; <strong>AQL Menor:</strong> '+(r.aql_menor||'-')+'%<br>'+
-        '<strong>Unds total ppto:</strong> '+(r.cant_lote!=null?Number(r.cant_lote).toLocaleString():'-')+' &nbsp; <strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
+        '<strong>Letra codigo:</strong> '+(r.letra_codigo||'-')+' &nbsp; <strong>Tamano muestra:</strong> '+(r.tamano_muestra||'-')+' &nbsp; <strong>Unds auditadas:</strong> '+(r.unds_auditadas||'-')+' &nbsp; <strong>Unds defectuosas:</strong> '+(r.unidades_defectuosas||0)+
       '</td></tr>'+
     '</table>'+
     '<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1a1a2e;">Hallazgos</p>'+
@@ -3248,12 +3323,9 @@ async function enviarCorreoAjusteResultado(r){
       const gruposNotificar=['Producción'];
       if(r.marca==='Rifle') gruposNotificar.push('Diseño Rifle','Planeación Rifle');
       if(r.marca==='Moft') gruposNotificar.push('Diseño Moft','Planeación Moft');
-      const gruposRows=await sb('/rest/v1/grupos_correo?select=grupo,correos');
-      (gruposRows||[]).forEach(g=>{
-        if(gruposNotificar.includes(g.grupo)&&g.correos){
-          g.correos.split(',').forEach(c=>{c=c.trim();if(c)destinatarios.push(c);});
-        }
-      });
+      const filtroGruposAj='in.('+gruposNotificar.map(g=>'"'+g+'"').join(',')+')';
+      const gruposRows=await sb('/rest/v1/correos_internos?select=grupo,correo&grupo='+encodeURIComponent(filtroGruposAj));
+      (gruposRows||[]).forEach(g=>{ if(g.correo) destinatarios.push(g.correo.trim()); });
     }catch(eGrp){ console.warn('No se pudieron leer los correos de los grupos internos.',eGrp); }
     const unicos=[...new Set(destinatarios.map(e=>e.trim()).filter(Boolean))];
     if(!unicos.length){
@@ -3289,12 +3361,9 @@ async function enviarCorreoAuditoria(a, registro, grupos, registroId){
     }catch(eProv){ console.warn('No se pudieron leer los correos del proveedor.',eProv); }
     if(grupos&&grupos.length){
       try{
-        const gruposRows=await sb('/rest/v1/grupos_correo?select=grupo,correos');
-        (gruposRows||[]).forEach(g=>{
-          if(grupos.includes(g.grupo)&&g.correos){
-            g.correos.split(',').forEach(c=>{c=c.trim();if(c)destinatarios.push(c);});
-          }
-        });
+        const filtroGrupos='in.('+grupos.map(g=>'"'+g+'"').join(',')+')';
+        const gruposRows=await sb('/rest/v1/correos_internos?select=grupo,correo&grupo='+encodeURIComponent(filtroGrupos));
+        (gruposRows||[]).forEach(g=>{ if(g.correo) destinatarios.push(g.correo.trim()); });
       }catch(eGrp){ console.warn('No se pudieron leer los correos de los grupos internos.',eGrp); }
     }
     const unicos=[...new Set(destinatarios.map(e=>e.trim()).filter(Boolean))];
