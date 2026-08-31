@@ -1055,10 +1055,12 @@ async function doLogin(){
   const btn=document.getElementById('btnLogin');
   btn.disabled=true;btn.innerHTML='<span class="spinner-inline"></span>';
   try {
-    // Intentar login como admin primero
-    const admRows=await sb('/rest/v1/administradores?select=*&usuario=eq.'+encodeURIComponent(u)+'&pass=eq.'+encodeURIComponent(p));
-    if (admRows&&admRows.length){
-      S.user=admRows[0].nombre;S.role='admin';S.adminId=admRows[0].id;
+    // Login seguro: una sola funcion en Supabase (rpc_login) compara las
+    // credenciales sin que el navegador tenga que leer la columna pass.
+    const resLogin=await sb('/rest/v1/rpc/rpc_login',{method:'POST',body:{p_usuario:u,p_pass:p}});
+    const match=resLogin&&resLogin[0];
+    if (match&&match.role==='admin'){
+      S.user=match.nombre;S.role='admin';S.adminId=match.id;
       document.getElementById('userLabel').textContent='Admin';
       document.getElementById('headerButtons').style.display='flex';
       btn.disabled=false;btn.textContent='Entrar';
@@ -1066,11 +1068,9 @@ async function doLogin(){
       await cargarDatosAdmin();
       return;
     }
-    // Intentar login como auditor
-    const audRows=await sb('/rest/v1/auditores?select=*&usuario=eq.'+encodeURIComponent(u)+'&pass=eq.'+encodeURIComponent(p));
-    if (audRows&&audRows.length){
-      S.user=audRows[0].nombre;S.role='auditor';
-      document.getElementById('userLabel').textContent=audRows[0].nombre;
+    if (match&&match.role==='auditor'){
+      S.user=match.nombre;S.role='auditor';
+      document.getElementById('userLabel').textContent=match.nombre;
       document.getElementById('headerButtons').style.display='flex';
       btn.disabled=false;btn.textContent='Entrar';
       showScreen('screenAuditor');
@@ -1085,11 +1085,9 @@ async function doLogin(){
       }
       return;
     }
-    // Intentar login como proveedor
-    const rows=await sb('/rest/v1/proveedores?select=*&usuario=eq.'+encodeURIComponent(u)+'&pass=eq.'+encodeURIComponent(p));
-    if (rows&&rows.length){
-      S.user=rows[0].nombre;S.userLogin=rows[0].usuario;S.role='proveedor';
-      document.getElementById('userLabel').textContent=rows[0].nombre;
+    if (match&&match.role==='proveedor'){
+      S.user=match.nombre;S.userLogin=match.usuario;S.role='proveedor';
+      document.getElementById('userLabel').textContent=match.nombre;
       document.getElementById('headerButtons').style.display='flex';
       if (!S.data.Rifle.length||!S.data.Moft.length){
         const archivos=await sb('/rest/v1/archivo_base?select=id,datos');
@@ -1560,8 +1558,8 @@ async function cargarDatosAdmin(){
   try {
     const [auds,provs,auds2]=await Promise.all([
       sb('/rest/v1/auditorias?select=*&order=created_at.desc'),
-      sb('/rest/v1/proveedores?select=*&order=creado.desc'),
-      sb('/rest/v1/auditores?select=*&order=nombre.asc').catch(()=>[])
+      sb('/rest/v1/proveedores?select=id,nombre,nit,usuario,email,email2,correos_auditoria,creado&order=creado.desc'),
+      sb('/rest/v1/auditores?select=id,nombre,usuario,email&order=nombre.asc').catch(()=>[])
     ]);
     S.auditorias=auds||[];S.proveedores=provs||[];S.auditores=auds2||[];
     poblarSelectProveedores();
@@ -1844,7 +1842,7 @@ async function registrarProveedor(){
   if (!nombre||!nit||!usuario||!pass){errEl.textContent='Completa los campos obligatorios.';errEl.style.display='block';return;}
   if (pass.length<6){errEl.textContent='Contraseña mínimo 6 caracteres.';errEl.style.display='block';return;}
   try {
-    await sb('/rest/v1/proveedores',{method:'POST',body:{nombre,nit,usuario,pass,email,email2,correos_auditoria:correosAud,creado:todayStr()},prefer:'return=representation'});
+    await sb('/rest/v1/proveedores',{method:'POST',body:{nombre,nit,usuario,pass,email,email2,correos_auditoria:correosAud,creado:todayStr()},prefer:'return=minimal'});
     okEl.textContent='Cuenta creada para '+nombre+' (usuario: '+usuario+').';okEl.style.display='block';
     if(email){
       try{
@@ -1889,7 +1887,7 @@ async function guardarEditProv(){
   const body={nombre,nit,usuario,email,email2,correos_auditoria:correosAud};
   if (pass){if(pass.length<6){errEl.textContent='Mínimo 6 caracteres.';errEl.style.display='block';return;}body.pass=pass;}
   try {
-    await sb('/rest/v1/proveedores?id=eq.'+id,{method:'PATCH',body});
+    await sb('/rest/v1/proveedores?id=eq.'+id,{method:'PATCH',body,prefer:'return=minimal'});
     closeModal('modalEditProv');await cargarDatosAdmin();toast('Proveedor actualizado',true);
   } catch(e){errEl.textContent='Error: '+e.message;errEl.style.display='block';}
 }
@@ -1897,7 +1895,7 @@ async function guardarEditProv(){
 async function eliminarProv(id,nombre){
   if (!confirm('¿Eliminar el proveedor "'+nombre+'"?')) return;
   try {
-    await sb('/rest/v1/proveedores?id=eq.'+id,{method:'DELETE'});
+    await sb('/rest/v1/proveedores?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
     await cargarDatosAdmin();toast('Proveedor eliminado');
   } catch(e){toast('Error al eliminar.');}
 }
@@ -2265,21 +2263,14 @@ async function enviarRecuperacion(){
   const btn=document.getElementById('btnRecuperar');
   btn.disabled=true;btn.textContent='Enviando…';
   try {
-    // Buscar en proveedores → auditores → administradores
-    let rows=await sb('/rest/v1/proveedores?select=*&usuario=eq.'+encodeURIComponent(usuario));
-    let tipoUsuario='proveedor';
-    if (!rows||!rows.length){
-      rows=await sb('/rest/v1/auditores?select=*&usuario=eq.'+encodeURIComponent(usuario));
-      tipoUsuario='auditor';
-    }
-    if (!rows||!rows.length){
-      rows=await sb('/rest/v1/administradores?select=*&usuario=eq.'+encodeURIComponent(usuario));
-      tipoUsuario='admin';
-    }
-    if (!rows||!rows.length){errEl.textContent='Usuario no encontrado.';errEl.style.display='block';btn.disabled=false;btn.textContent='Enviar contraseña';return;}
-    const prov=rows[0];
+    // Login seguro: rpc_recuperar_password busca en proveedores -> auditores
+    // -> administradores dentro de Supabase, sin que el navegador tenga que
+    // leer la columna pass directamente.
+    const resRec=await sb('/rest/v1/rpc/rpc_recuperar_password',{method:'POST',body:{p_usuario:usuario}});
+    const prov=resRec&&resRec[0];
+    if (!prov){errEl.textContent='Usuario no encontrado.';errEl.style.display='block';btn.disabled=false;btn.textContent='Enviar contraseña';return;}
     if (!prov.email){errEl.textContent='Sin correo registrado. Contacta al administrador.';errEl.style.display='block';btn.disabled=false;btn.textContent='Enviar contraseña';return;}
-    const nombreMostrar=tipoUsuario==='admin'?prov.nombre+' (Administrador)':prov.nombre;
+    const nombreMostrar=prov.tipo==='admin'?prov.nombre+' (Administrador)':prov.nombre;
     await sendBrevo(prov.email, nombreMostrar,
       'Recuperación de contraseña — Auditorías GCO',
       tplCredenciales(nombreMostrar, prov.usuario, prov.pass, true));
@@ -2306,15 +2297,16 @@ async function cambiarPassword(){
   btn.disabled=true;btn.textContent='Guardando…';
   try {
     if (S.role==='admin'){
-      // Verificar contra tabla administradores
-      const rows=await sb('/rest/v1/administradores?select=*&pass=eq.'+encodeURIComponent(actual)+'&id=eq.'+S.adminId);
-      if (!rows||!rows.length){errEl.textContent='La contraseña actual es incorrecta.';errEl.style.display='block';btn.disabled=false;btn.textContent='Guardar nueva contraseña';return;}
-      await sb('/rest/v1/administradores?id=eq.'+S.adminId,{method:'PATCH',body:{pass:nueva}});
+      // Verificar via rpc_verificar_password (no lee la columna pass desde el navegador)
+      const ver=await sb('/rest/v1/rpc/rpc_verificar_password',{method:'POST',body:{p_role:'admin',p_admin_id:S.adminId,p_nombre:null,p_pass:actual}});
+      const vok=ver&&ver[0]&&ver[0].ok;
+      if (!vok){errEl.textContent='La contraseña actual es incorrecta.';errEl.style.display='block';btn.disabled=false;btn.textContent='Guardar nueva contraseña';return;}
+      await sb('/rest/v1/administradores?id=eq.'+S.adminId,{method:'PATCH',body:{pass:nueva},prefer:'return=minimal'});
     } else {
-      // Verificar contra tabla proveedores
-      const rows=await sb('/rest/v1/proveedores?select=*&nombre=eq.'+encodeURIComponent(S.user)+'&pass=eq.'+encodeURIComponent(actual));
-      if (!rows||!rows.length){errEl.textContent='La contraseña actual es incorrecta.';errEl.style.display='block';btn.disabled=false;btn.textContent='Guardar nueva contraseña';return;}
-      await sb('/rest/v1/proveedores?id=eq.'+rows[0].id,{method:'PATCH',body:{pass:nueva}});
+      const ver=await sb('/rest/v1/rpc/rpc_verificar_password',{method:'POST',body:{p_role:'proveedor',p_admin_id:null,p_nombre:S.user,p_pass:actual}});
+      const vres=ver&&ver[0];
+      if (!vres||!vres.ok){errEl.textContent='La contraseña actual es incorrecta.';errEl.style.display='block';btn.disabled=false;btn.textContent='Guardar nueva contraseña';return;}
+      await sb('/rest/v1/proveedores?id=eq.'+vres.id,{method:'PATCH',body:{pass:nueva},prefer:'return=minimal'});
     }
     okEl.textContent='✓ Contraseña actualizada correctamente.';okEl.style.display='block';
     setTimeout(()=>closeModal('modalCambiarPass'),2000);
@@ -2351,7 +2343,7 @@ async function registrarAuditor(){
     const body={nombre,email};
     if (usuario) body.usuario=usuario;
     if (pass) body.pass=pass;
-    const res=await sb('/rest/v1/auditores',{method:'POST',body,prefer:'return=representation'});
+    const res=await sb('/rest/v1/auditores?select=id,nombre,usuario,email',{method:'POST',body,prefer:'return=representation'});
     S.auditores.push(...(res||[]));
     okEl.textContent='Auditor '+nombre+' registrado'+(usuario?' (usuario: '+usuario+')':'')+'.';okEl.style.display='block';
     if(email&&usuario&&pass){
@@ -2371,7 +2363,7 @@ async function registrarAuditor(){
 async function eliminarAuditor(id,nombre){
   if (!confirm('¿Eliminar el auditor "'+nombre+'"?')) return;
   try {
-    await sb('/rest/v1/auditores?id=eq.'+id,{method:'DELETE'});
+    await sb('/rest/v1/auditores?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
     S.auditores=S.auditores.filter(a=>a.id!==id);
     poblarSelectProveedores();toast('Auditor eliminado');
   } catch(e){toast('Error al eliminar.');}
