@@ -2482,6 +2482,22 @@ async function subirFotoStorage(file, path){
   if(!res.ok) throw new Error(await res.text());
   return SB_URL+'/storage/v1/object/public/'+STORAGE_BUCKET+'/'+path;
 }
+function hallazgoFotos(h){
+  return (h.fotos&&h.fotos.length)?h.fotos:(h.foto_url?[h.foto_url]:[]);
+}
+async function handleRegFotoFija(input, campo){
+  const file=input.files[0]; if(!file) return;
+  const preview=document.getElementById('reg'+campo+'FotoPreview');
+  const status=document.getElementById('reg'+campo+'FotoStatus');
+  status.textContent='Subiendo...';
+  try{
+    const path=Date.now()+'_'+Math.random().toString(36).slice(2)+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const url=await subirFotoStorage(file,path);
+    S['reg'+campo+'FotoUrl']=url;
+    preview.src=url;preview.style.display='inline-block';
+    status.textContent='Foto adjunta';
+  }catch(e){ status.textContent='Error al subir la foto (revisa el bucket de Storage).'; }
+}
 
 /* ── Motor AQL / Tabla Militar (ANSI/ASQC Z1.4, ref. cap.10 manual) ──
    Tabla I: letra código según tamaño de lote y nivel de inspección. */
@@ -2883,6 +2899,16 @@ function renderModalRegistro(){
   document.getElementById('regAqlMenor').value='2.5';
   document.getElementById('regPvp').value='';
   document.getElementById('regObservaciones').value='';
+  S.regPvpFotoUrl=null;
+  document.getElementById('regPvpFotoInput').value='';
+  document.getElementById('regPvpFotoPreview').style.display='none';
+  document.getElementById('regPvpFotoPreview').removeAttribute('src');
+  document.getElementById('regPvpFotoStatus').textContent='Obligatoria';
+  S.regObservacionesFotoUrl=null;
+  document.getElementById('regObservacionesFotoInput').value='';
+  document.getElementById('regObservacionesFotoPreview').style.display='none';
+  document.getElementById('regObservacionesFotoPreview').removeAttribute('src');
+  document.getElementById('regObservacionesFotoStatus').textContent='Obligatoria';
   ['regInsumos','regEstampado','regLavanderia','regBordado','regEtiqueta'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('regHallazgos').innerHTML='';
   document.getElementById('regUndsAuditadas').value='';
@@ -2938,6 +2964,7 @@ function addHallazgoRow(){
   const row=document.createElement('div');
   row.className='hallazgo-row';
   row.dataset.defectoId='';
+  row.fotoUrls=[];
   row.style.cssText='border:1.5px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px';
   row.innerHTML=
     '<div class="hz-grid">'+
@@ -2949,15 +2976,27 @@ function addHallazgoRow(){
       '<input type="number" min="0" placeholder="Cant." class="hz-cant-input">'+
       '<button type="button" class="del-btn" title="Quitar">X</button>'+
     '</div>'+
-    '<div style="display:flex;align-items:center;gap:10px;margin-top:8px">'+
-      '<label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">Foto<input type="file" accept="image/*" capture="environment" style="display:none" class="hz-foto-input"></label>'+
-      '<img class="hz-foto-preview" style="display:none;height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">'+
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">'+
+      '<label class="btn btn-secondary btn-sm hz-foto-btn" style="cursor:pointer;margin:0">Foto<input type="file" accept="image/*" capture="environment" style="display:none" class="hz-foto-input"></label>'+
+      '<div class="hz-foto-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>'+
       '<span class="hz-foto-status" style="font-size:11px;color:var(--ink-soft)"></span>'+
     '</div>';
   wrap.appendChild(row);
+  const MAX_FOTOS_HALLAZGO=3;
   const defInput=row.querySelector('.hz-defecto-input'),dropdown=row.querySelector('.hz-defecto-dropdown');
   const criterioEl=row.querySelector('.hz-criterio'),cant=row.querySelector('input[type=number]'),delBtn=row.querySelector('.del-btn');
-  const fotoInput=row.querySelector('.hz-foto-input'),fotoPreview=row.querySelector('.hz-foto-preview'),fotoStatus=row.querySelector('.hz-foto-status');
+  const fotoInput=row.querySelector('.hz-foto-input'),fotoBtn=row.querySelector('.hz-foto-btn'),fotoList=row.querySelector('.hz-foto-list'),fotoStatus=row.querySelector('.hz-foto-status');
+  function renderFotoList(){
+    fotoList.innerHTML=row.fotoUrls.map((url,i)=>
+      '<div style="position:relative">'+
+        '<img src="'+url+'" style="height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">'+
+        '<button type="button" class="hz-foto-del" data-i="'+i+'" title="Quitar foto" style="position:absolute;top:-6px;right:-6px;width:16px;height:16px;line-height:14px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:10px;cursor:pointer;padding:0">×</button>'+
+      '</div>'
+    ).join('');
+    fotoBtn.style.display=row.fotoUrls.length>=MAX_FOTOS_HALLAZGO?'none':'inline-flex';
+    fotoStatus.textContent=row.fotoUrls.length?row.fotoUrls.length+'/'+MAX_FOTOS_HALLAZGO+' fotos':'Hasta '+MAX_FOTOS_HALLAZGO+' fotos';
+  }
+  renderFotoList();
   function renderDropdown(filtro){
     const f=norm(filtro||'');
     const matches=S.defectos.filter(d=>!f||norm(d.nombre).includes(f)||norm((d.codigo||'')).includes(f)).slice(0,60);
@@ -2992,15 +3031,21 @@ function addHallazgoRow(){
   });
   cant.addEventListener('input',recalcularResultado);
   delBtn.addEventListener('click',()=>{row.remove();recalcularResultado();});
+  fotoList.addEventListener('click',e=>{
+    const btn=e.target.closest('.hz-foto-del'); if(!btn) return;
+    row.fotoUrls.splice(parseInt(btn.dataset.i),1);
+    renderFotoList();
+  });
   fotoInput.addEventListener('change',async()=>{
     const file=fotoInput.files[0];if(!file)return;
+    fotoInput.value='';
+    if(row.fotoUrls.length>=MAX_FOTOS_HALLAZGO)return;
     fotoStatus.textContent='Subiendo...';
     try{
       const path=Date.now()+'_'+Math.random().toString(36).slice(2)+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       const url=await subirFotoStorage(file,path);
-      row.dataset.fotoUrl=url;
-      fotoPreview.src=url;fotoPreview.style.display='inline-block';
-      fotoStatus.textContent='Foto adjunta';
+      row.fotoUrls.push(url);
+      renderFotoList();
     }catch(e){ fotoStatus.textContent='Error al subir la foto (revisa el bucket de Storage).'; }
   });
 }
@@ -3012,7 +3057,7 @@ function leerHallazgos(){
     const cant=r.querySelector('input[type=number]');
     if(defectoId&&cant&&cant.value){
       const d=S.defectos.find(x=>String(x.id)===String(defectoId));
-      if(d) hallazgos.push({defecto_id:defectoId,defecto_nombre:d.nombre,criterio:d.criterio,cantidad:parseInt(cant.value)||0,foto_url:r.dataset.fotoUrl||null});
+      if(d) hallazgos.push({defecto_id:defectoId,defecto_nombre:d.nombre,criterio:d.criterio,cantidad:parseInt(cant.value)||0,fotos:(r.fotoUrls||[]).slice()});
     }
   });
   return hallazgos;
@@ -3069,6 +3114,8 @@ async function guardarRegistro(){
   const camposVerif=['regInsumos','regEstampado','regLavanderia','regBordado','regEtiqueta'];
   const faltantes=camposVerif.some(id=>!document.getElementById(id).value);
   if(faltantes){toast('Completa todas las verificaciones adicionales (Cumple / No cumple / No aplica).');return;}
+  if(!S.regPvpFotoUrl){toast('Adjunta la foto de PVP antes de guardar.');return;}
+  if(!S.regObservacionesFotoUrl){toast('Adjunta la foto de observaciones antes de guardar.');return;}
   const validacionHallazgos=validarHallazgosFormulario();
   if(!validacionHallazgos.ok){toast(validacionHallazgos.mensaje);return;}
   const hallazgos=leerHallazgos();
@@ -3092,7 +3139,9 @@ async function guardarRegistro(){
       insumos:document.getElementById('regInsumos').value,estampado:document.getElementById('regEstampado').value,
       lavanderia:document.getElementById('regLavanderia').value,bordado:document.getElementById('regBordado').value,
       etiqueta:document.getElementById('regEtiqueta').value,pvp:document.getElementById('regPvp').value||'',
+      pvp_foto_url:S.regPvpFotoUrl||null,
       observaciones:document.getElementById('regObservaciones').value||'',estado:ctx.resultado.estado,
+      observaciones_foto_url:S.regObservacionesFotoUrl||null,
       inicio_registro:ctx.inicioRegistro||null
     };
     const insertado=await sb('/rest/v1/auditoria_registro',{method:'POST',body,prefer:'return=representation'});
@@ -3127,7 +3176,7 @@ function renderModalReporte(){
   const hallazgosHtml=(r.hallazgos&&r.hallazgos.length)
     ?r.hallazgos.map(h=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">'+
         '<span>'+h.defecto_nombre+' <span class="badge '+(h.criterio==='CRITICO'?'badge-red':(h.criterio==='MAYOR'?'badge-blue':'badge-gray'))+'">'+h.criterio+'</span> x'+h.cantidad+'</span>'+
-        (h.foto_url?'<a href="'+h.foto_url+'" target="_blank"><img src="'+h.foto_url+'" style="height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"></a>':'')+
+        (hallazgoFotos(h).length?hallazgoFotos(h).map(function(u){return '<a href="'+u+'" target="_blank"><img src="'+u+'" style="height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border);margin-right:4px"></a>';}).join(''):'')+
       '</div>').join('')
     :'<p style="font-size:13px;color:var(--ink-soft)">Sin hallazgos registrados.</p>';
   const ajusteHtml=r.ajustado_manualmente
@@ -3153,8 +3202,8 @@ function renderModalReporte(){
     '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Hallazgos</div>'+hallazgosHtml+
     '<div class="divider"></div><div style="font-weight:700;margin-bottom:8px">Verificaciones adicionales</div>'+
     '<div style="font-size:13px">Insumos: '+(r.insumos||'-')+' | Estampado: '+(r.estampado||'-')+' | Lavanderia: '+(r.lavanderia||'-')+' | Bordado: '+(r.bordado||'-')+' | Etiqueta: '+(r.etiqueta||'-')+'</div>'+
-    '<div style="margin-top:8px;font-size:13px"><strong>PVP:</strong> '+(r.pvp||'-')+'</div>'+
-    '<div style="margin-top:8px;font-size:13px"><strong>Observaciones:</strong> '+(r.observaciones||'-')+'</div>'+
+    '<div style="margin-top:8px;font-size:13px"><strong>PVP:</strong> '+(r.pvp||'-')+(r.pvp_foto_url?' <a href="'+r.pvp_foto_url+'" target="_blank"><img src="'+r.pvp_foto_url+'" style="height:30px;width:30px;object-fit:cover;border-radius:4px;border:1px solid var(--border);vertical-align:middle;margin-left:6px"></a>':'')+'</div>'+
+    '<div style="margin-top:8px;font-size:13px"><strong>Observaciones:</strong> '+(r.observaciones||'-')+(r.observaciones_foto_url?' <a href="'+r.observaciones_foto_url+'" target="_blank"><img src="'+r.observaciones_foto_url+'" style="height:30px;width:30px;object-fit:cover;border-radius:4px;border:1px solid var(--border);vertical-align:middle;margin-left:6px"></a>':'')+'</div>'+
     '<div class="divider"></div><div class="flex-between"><div style="font-weight:700">Resultado</div><span class="badge '+(resultadoEfectivo==='Aprobado'?'badge-green':'badge-red')+'">'+resultadoEfectivo+'</span></div>'+
     correoResultadoHtml+correoAjusteHtml+
     ajusteHtml;
@@ -3209,7 +3258,7 @@ function tplReporteAuditoria(a, r){
     ? r.hallazgos.map(h=>'<tr><td style="padding:8px;border:1px solid #ddd;font-size:13px">'+h.defecto_nombre+'</td>'+
         '<td style="padding:8px;border:1px solid #ddd;font-size:12px;text-align:center">'+h.criterio+'</td>'+
         '<td style="padding:8px;border:1px solid #ddd;font-size:13px;text-align:center">'+h.cantidad+'</td>'+
-        '<td style="padding:8px;border:1px solid #ddd;text-align:center">'+(h.foto_url?'<a href="'+h.foto_url+'"><img src="'+h.foto_url+'" style="height:50px;width:50px;object-fit:cover;border-radius:4px"></a>':'-')+'</td></tr>').join('')
+        '<td style="padding:8px;border:1px solid #ddd;text-align:center">'+(hallazgoFotos(h).length?hallazgoFotos(h).map(function(u){return '<a href="'+u+'"><img src="'+u+'" style="height:50px;width:50px;object-fit:cover;border-radius:4px;margin:2px"></a>';}).join(''):'-')+'</td></tr>').join('')
     : '<tr><td colspan="4" style="padding:8px;border:1px solid #ddd;font-size:13px;color:#9a9a9a">Sin hallazgos registrados.</td></tr>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f0ede8;font-family:\'Segoe UI\',Arial,sans-serif;">'+
 '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0ede8;padding:32px 16px;"><tr><td align="center">'+
@@ -3238,9 +3287,9 @@ function tplReporteAuditoria(a, r){
     '</table>'+
     '<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;">'+
       '<strong>Insumos:</strong> '+(r.insumos||'-')+' &nbsp; <strong>Estampado:</strong> '+(r.estampado||'-')+' &nbsp; <strong>Lavanderia:</strong> '+(r.lavanderia||'-')+'<br>'+
-      '<strong>Bordado:</strong> '+(r.bordado||'-')+' &nbsp; <strong>Etiqueta:</strong> '+(r.etiqueta||'-')+' &nbsp; <strong>PVP:</strong> '+(r.pvp||'-')+
+      '<strong>Bordado:</strong> '+(r.bordado||'-')+' &nbsp; <strong>Etiqueta:</strong> '+(r.etiqueta||'-')+' &nbsp; <strong>PVP:</strong> '+(r.pvp||'-')+(r.pvp_foto_url?' <a href="'+r.pvp_foto_url+'">[ver foto PVP]</a>':'')+
     '</p>'+
-    (r.observaciones?'<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;"><strong>Observaciones:</strong> '+r.observaciones+'</p>':'')+
+    (r.observaciones?'<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;"><strong>Observaciones:</strong> '+r.observaciones+(r.observaciones_foto_url?' <a href="'+r.observaciones_foto_url+'">[ver foto]</a>':'')+'</p>':'')+
     '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:14px;background:#f7f5f2;border-radius:8px;">'+
       '<span style="font-size:13px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">Resultado final</span><br>'+
       '<strong style="font-size:22px;color:'+resultadoColor+';font-family:Georgia,serif;">'+r.estado+'</strong>'+
@@ -3256,7 +3305,7 @@ function tplAjusteResultado(r){
     ? r.hallazgos.map(h=>'<tr><td style="padding:8px;border:1px solid #ddd;font-size:13px">'+h.defecto_nombre+'</td>'+
         '<td style="padding:8px;border:1px solid #ddd;font-size:12px;text-align:center">'+h.criterio+'</td>'+
         '<td style="padding:8px;border:1px solid #ddd;font-size:13px;text-align:center">'+h.cantidad+'</td>'+
-        '<td style="padding:8px;border:1px solid #ddd;text-align:center">'+(h.foto_url?'<a href="'+h.foto_url+'"><img src="'+h.foto_url+'" style="height:50px;width:50px;object-fit:cover;border-radius:4px"></a>':'-')+'</td></tr>').join('')
+        '<td style="padding:8px;border:1px solid #ddd;text-align:center">'+(hallazgoFotos(h).length?hallazgoFotos(h).map(function(u){return '<a href="'+u+'"><img src="'+u+'" style="height:50px;width:50px;object-fit:cover;border-radius:4px;margin:2px"></a>';}).join(''):'-')+'</td></tr>').join('')
     : '<tr><td colspan="4" style="padding:8px;border:1px solid #ddd;font-size:13px;color:#9a9a9a">Sin hallazgos registrados.</td></tr>';
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f0ede8;font-family:\'Segoe UI\',Arial,sans-serif;">'+
 '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0ede8;padding:32px 16px;"><tr><td align="center">'+
@@ -3291,7 +3340,7 @@ function tplAjusteResultado(r){
       '<thead><tr style="background:#1a1a2e;color:#fff"><th style="padding:8px;font-size:12px;text-align:left">Defecto</th><th style="padding:8px;font-size:12px">Criterio</th><th style="padding:8px;font-size:12px">Cant.</th><th style="padding:8px;font-size:12px">Foto</th></tr></thead>'+
       '<tbody>'+hallazgosHtml+'</tbody>'+
     '</table>'+
-    (r.observaciones?'<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;"><strong>Observaciones:</strong> '+r.observaciones+'</p>':'')+
+    (r.observaciones?'<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;"><strong>Observaciones:</strong> '+r.observaciones+(r.observaciones_foto_url?' <a href="'+r.observaciones_foto_url+'">[ver foto]</a>':'')+'</p>':'')+
     '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:14px;background:#f7f5f2;border-radius:8px;">'+
       '<span style="font-size:13px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">Resultado final</span><br>'+
       '<strong style="font-size:22px;color:#2e7d32;font-family:Georgia,serif;">APROBADO</strong>'+
@@ -3481,7 +3530,23 @@ init();
       <div class="form-row"><label>Etiqueta</label><select id="regEtiqueta"><option value="">Selecciona...</option><option value="CUMPLE">Cumple</option><option value="NO CUMPLE">No cumple</option><option value="NA">No aplica</option></select></div>
       <div class="form-row"><label>PVP</label><input type="text" id="regPvp"></div>
     </div>
+    <div class="form-row">
+      <label>Foto PVP <span style="color:var(--accent)">*</span></label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">Foto<input type="file" accept="image/*" capture="environment" style="display:none" id="regPvpFotoInput" onchange="handleRegFotoFija(this,'Pvp')"></label>
+        <img id="regPvpFotoPreview" style="display:none;height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
+        <span id="regPvpFotoStatus" style="font-size:11px;color:var(--ink-soft)">Obligatoria</span>
+      </div>
+    </div>
     <div class="form-row"><label>Observaciones</label><textarea id="regObservaciones" rows="3" style="width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:7px;font-family:var(--font);font-size:14px"></textarea></div>
+    <div class="form-row">
+      <label>Foto observaciones <span style="color:var(--accent)">*</span></label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">Foto<input type="file" accept="image/*" capture="environment" style="display:none" id="regObservacionesFotoInput" onchange="handleRegFotoFija(this,'Observaciones')"></label>
+        <img id="regObservacionesFotoPreview" style="display:none;height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
+        <span id="regObservacionesFotoStatus" style="font-size:11px;color:var(--ink-soft)">Obligatoria</span>
+      </div>
+    </div>
 
     <div class="divider"></div>
     <div class="flex-between" style="margin-bottom:16px">
