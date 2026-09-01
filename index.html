@@ -2485,6 +2485,13 @@ async function subirFotoStorage(file, path){
 function hallazgoFotos(h){
   return (h.fotos&&h.fotos.length)?h.fotos:(h.foto_url?[h.foto_url]:[]);
 }
+function formatearPvp(input){
+  let digits=input.value.replace(/[^0-9]/g,'');
+  digits=digits.replace(/^0+(?=\d)/,'');
+  if(!digits){ input.value=''; return; }
+  const formatted=digits.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  input.value='$ '+formatted;
+}
 function observacionesFotos(r){
   return (r.observaciones_foto_urls&&r.observaciones_foto_urls.length)?r.observaciones_foto_urls:(r.observaciones_foto_url?[r.observaciones_foto_url]:[]);
 }
@@ -3565,7 +3572,7 @@ init();
     </div>
     <div class="form-grid">
       <div class="form-row"><label>Etiqueta</label><select id="regEtiqueta"><option value="">Selecciona...</option><option value="CUMPLE">Cumple</option><option value="NO CUMPLE">No cumple</option><option value="NA">No aplica</option></select></div>
-      <div class="form-row"><label>PVP</label><input type="text" id="regPvp"></div>
+      <div class="form-row"><label>PVP</label><input type="text" id="regPvp" inputmode="numeric" placeholder="$ 0" oninput="formatearPvp(this)"></div>
     </div>
     <div class="form-row">
       <label>Foto PVP <span style="color:var(--accent)">*</span></label>
