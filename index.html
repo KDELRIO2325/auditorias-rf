@@ -294,6 +294,7 @@ tbody td.center{text-align:center}
       <button class="tab-btn" onclick="switchTab('tabAuditores',this)">Auditores</button>
       <button class="tab-btn" onclick="switchTab('tabDefectos',this)">Defectos</button>
       <button class="tab-btn" onclick="switchTab('tabCorreos',this)">Correos internos</button>
+      <button class="tab-btn" onclick="switchTab('tabSetTallasAdmin',this)">Set de Tallas</button>
       <button class="tab-btn" onclick="switchTab('tabArchivo',this)">Archivo base</button>
     </div>
 
@@ -620,6 +621,76 @@ tbody td.center{text-align:center}
     </div>
 
     <!-- TAB: Archivo base -->
+    <div class="tab-panel" id="tabSetTallasAdmin">
+      <div class="card" style="padding:18px 14px">
+        <div class="flex-between" style="margin-bottom:12px;flex-wrap:wrap;gap:10px">
+          <div style="font-weight:700;font-size:14px">Set de Tallas — todos los auditores</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="refresh-btn" onclick="cargarSetTallasAdmin()" title="Recargar datos del servidor">🔄 Actualizar</button>
+            <button class="btn btn-primary btn-sm" onclick="abrirModalSetTallas()">+ Nuevo registro de set de tallas</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px;align-items:end">
+          <div class="form-row" style="margin-bottom:0">
+            <label>Referencia</label>
+            <input type="text" id="filtroRefSetTallasAdmin" placeholder="Buscar REF" oninput="renderSetTallasAdmin()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Proveedor</label>
+            <input type="text" id="filtroProvSetTallasAdmin" placeholder="Buscar proveedor" oninput="renderSetTallasAdmin()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Paq</label>
+            <input type="text" id="filtroPaqSetTallasAdmin" placeholder="Buscar Paq" oninput="renderSetTallasAdmin()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Marca</label>
+            <select id="filtroMarcaSetTallasAdmin" onchange="renderSetTallasAdmin()">
+              <option value="">Todas</option>
+              <option value="Rifle">Rifle</option>
+              <option value="Moft">Moft</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Fecha</label>
+            <input type="date" id="filtroFechaSetTallasAdmin" onchange="renderSetTallasAdmin()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Resultado</label>
+            <select id="filtroResultadoSetTallasAdmin" onchange="renderSetTallasAdmin()">
+              <option value="">Todos</option>
+              <option value="Aprobado">Aprobado</option>
+              <option value="Aprobado con corrección">Aprobado con corrección</option>
+              <option value="Rechazado">Rechazado</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Auditor</label>
+            <div class="cdd-wrap">
+              <button type="button" class="cdd-btn" id="stAdminAuditorDDBtn" onclick="toggleSTAdminAuditorDD(event)">
+                <span id="stAdminAuditorDDLabel">Todos</span><span>▾</span>
+              </button>
+              <div class="cdd-panel" id="stAdminAuditorDDPanel">
+                <label class="cdd-item"><input type="checkbox" id="stAdminAudDD_todos" checked onchange="stAdminAuditorDDTodos(this)">Todos</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Fecha</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Pantone</th><th>Paq</th>
+                <th>Resultado</th><th>Auditor</th><th class="center">Reporte</th>
+              </tr>
+            </thead>
+            <tbody id="tblSetTallasAdminBody"></tbody>
+          </table>
+        </div>
+        <p id="setTallasAdminEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay registros de set de tallas.</p>
+      </div>
+    </div>
+
     <div class="tab-panel" id="tabArchivo">
       <div class="card">
         <div class="card-title">Archivos base</div>
@@ -656,6 +727,11 @@ tbody td.center{text-align:center}
 <!-- AUDITOR -->
 <div class="screen" id="screenAuditor">
   <div class="main">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchAuditorTab('tabAuditorProgramadas',this)">Auditorías programadas</button>
+      <button class="tab-btn" onclick="switchAuditorTab('tabAuditorSetTallas',this)">Set de Tallas</button>
+    </div>
+    <div class="tab-panel active" id="tabAuditorProgramadas">
     <div class="card" style="padding:18px 14px">
       <div class="flex-between" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div style="font-family:var(--head);font-size:19px">Mis auditorías asignadas</div>
@@ -683,23 +759,47 @@ tbody td.center{text-align:center}
       </div>
       <p id="auditorEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay auditorías asignadas para esta fecha.</p>
     </div>
+    </div>
 
-    <div class="card" style="padding:18px 14px;margin-top:16px">
+    <div class="tab-panel" id="tabAuditorSetTallas">
+    <div class="card" style="padding:18px 14px">
       <div class="flex-between" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div style="font-family:var(--head);font-size:19px">Set de Tallas</div>
-        <button class="btn btn-primary btn-sm" onclick="abrirModalSetTallas()">+ Nuevo registro de set de tallas</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="refresh-btn" onclick="cargarSetTallasAuditor()">🔄 Actualizar</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalSetTallas()">+ Nuevo registro de set de tallas</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <input type="text" id="filtroRefSetTallasAud" placeholder="Buscar REF" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:110px" oninput="renderSetTallasAuditor()">
+        <input type="text" id="filtroProvSetTallasAud" placeholder="Buscar proveedor" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:130px" oninput="renderSetTallasAuditor()">
+        <input type="text" id="filtroPaqSetTallasAud" placeholder="Buscar Paq" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font);width:100px" oninput="renderSetTallasAuditor()">
+        <select id="filtroMarcaSetTallasAud" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderSetTallasAuditor()">
+          <option value="">Todas</option>
+          <option value="Rifle">Rifle</option>
+          <option value="Moft">Moft</option>
+        </select>
+        <label style="font-size:12px;color:var(--ink-soft)">Fecha:</label>
+        <input type="date" id="filtroFechaSetTallasAud" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderSetTallasAuditor()">
+        <select id="filtroResultadoSetTallasAud" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" onchange="renderSetTallasAuditor()">
+          <option value="">Todos los resultados</option>
+          <option value="Aprobado">Aprobado</option>
+          <option value="Aprobado con corrección">Aprobado con corrección</option>
+          <option value="Rechazado">Rechazado</option>
+        </select>
       </div>
       <div class="tbl-wrap">
         <table>
           <thead>
             <tr>
-              <th>#</th><th>Fecha</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Pantone</th><th>Resultado</th><th class="center">Reporte</th>
+              <th>#</th><th>Fecha</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Pantone</th><th>Paq</th><th>Resultado</th><th class="center">Reporte</th>
             </tr>
           </thead>
           <tbody id="tblSetTallasBody"></tbody>
         </table>
       </div>
       <p id="setTallasEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">Aún no has registrado ningún set de tallas.</p>
+    </div>
     </div>
   </div>
 </div>
@@ -940,6 +1040,14 @@ document.addEventListener('click',()=>{
   document.getElementById('auditorDDPanel')?.classList.remove('open');
   document.getElementById('auditorDDBtn')?.classList.remove('open');
 });
+function resumenCorreo(res){
+  if(!res) return 'estado del correo desconocido.';
+  if(res.sinDestinatarios) return 'no se envió correo (sin destinatarios configurados).';
+  const okCount=(res.enviados||[]).length, failCount=(res.fallidos||[]).length;
+  if(failCount===0) return 'correo enviado a '+okCount+' destinatario'+(okCount===1?'':'s')+'.';
+  if(okCount===0) return 'error enviando el correo a '+failCount+' destinatario'+(failCount===1?'':'s')+'.';
+  return 'correo enviado a '+okCount+', con error en '+failCount+' destinatario'+(failCount===1?'':'s')+'.';
+}
 function toast(msg, ok=false){
   const el = document.createElement('div');
   el.className = 'toast'+(ok?' ok':''); el.textContent = msg;
@@ -2396,6 +2504,15 @@ function switchTab(panelId,btn){
   if (['tabRegistros','tabProveedores','tabProgramar','tabAuditores'].includes(panelId)) cargarDatosAdmin();
   if (panelId==='tabDefectos') cargarDefectos();
   if (panelId==='tabCorreos') cargarGruposCorreo();
+  if (panelId==='tabSetTallasAdmin') cargarSetTallasAdmin();
+}
+/* Pestanas del rol auditor (screenAuditor): escopadas a ese screen para no
+   interferir con las pestanas del admin, que switchTab() controla de forma
+   global (document.querySelectorAll sin filtrar por pantalla). */
+function switchAuditorTab(panelId,btn){
+  document.querySelectorAll('#screenAuditor .tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#screenAuditor .tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(panelId).classList.add('active');btn.classList.add('active');
 }
 
 /* ══ HORA SOLICITUD ══════════════════════════════════════ */
@@ -2515,25 +2632,28 @@ function observacionesFotos(r){
   return (r.observaciones_foto_urls&&r.observaciones_foto_urls.length)?r.observaciones_foto_urls:(r.observaciones_foto_url?[r.observaciones_foto_url]:[]);
 }
 const MAX_FOTOS_CAMPO=3;
+const MAX_FOTOS_CAMPO_OVERRIDE={STPvp:2};
+function maxFotosCampo(campo){ return MAX_FOTOS_CAMPO_OVERRIDE[campo]||MAX_FOTOS_CAMPO; }
 function renderFotoListCampo(campo){
   const list=document.getElementById('reg'+campo+'FotoList');
   const btn=document.getElementById('reg'+campo+'FotoBtn');
   const status=document.getElementById('reg'+campo+'FotoStatus');
   const urls=S['reg'+campo+'FotoUrls']||[];
+  const max=maxFotosCampo(campo);
   list.innerHTML=urls.map((url,i)=>
     '<div style="position:relative">'+
       '<img src="'+url+'" style="height:40px;width:40px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">'+
       '<button type="button" class="reg-foto-del" data-campo="'+campo+'" data-i="'+i+'" title="Quitar foto" style="position:absolute;top:-6px;right:-6px;width:16px;height:16px;line-height:14px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:10px;cursor:pointer;padding:0">×</button>'+
     '</div>'
   ).join('');
-  btn.style.display=urls.length>=MAX_FOTOS_CAMPO?'none':'inline-flex';
-  status.textContent=urls.length?urls.length+'/'+MAX_FOTOS_CAMPO+' fotos':'Obligatoria (hasta '+MAX_FOTOS_CAMPO+')';
+  btn.style.display=urls.length>=max?'none':'inline-flex';
+  status.textContent=urls.length?urls.length+'/'+max+' fotos':'Obligatoria (hasta '+max+')';
 }
 async function handleRegFotoMultiple(input, campo){
   const file=input.files[0]; if(!file) return;
   input.value='';
   const urls=S['reg'+campo+'FotoUrls']||(S['reg'+campo+'FotoUrls']=[]);
-  if(urls.length>=MAX_FOTOS_CAMPO) return;
+  if(urls.length>=maxFotosCampo(campo)) return;
   const status=document.getElementById('reg'+campo+'FotoStatus');
   status.textContent='Subiendo...';
   try{
@@ -3210,9 +3330,10 @@ async function guardarRegistro(){
     const insertado=await sb('/rest/v1/auditoria_registro',{method:'POST',body,prefer:'return=representation'});
     const registroId=insertado&&insertado[0]&&insertado[0].id;
     for(const id of ctx.seleccionados){ await sb('/rest/v1/auditorias?id=eq.'+id,{method:'PATCH',body:{resultado_auditoria:ctx.resultado.estado}}); }
-    toast('Registro de auditoria guardado ('+ctx.resultado.estado+')',true);
     const gruposSeleccionados=[...document.querySelectorAll('#regGruposCorreo .chk-grupo-correo:checked')].map(c=>c.value);
-    enviarCorreoAuditoria(a,body,gruposSeleccionados,registroId);
+    btn.innerHTML='<span class="spinner-inline"></span> Enviando correo...';
+    const resCorreo=await enviarCorreoAuditoria(a,body,gruposSeleccionados,registroId);
+    toast('Registro de auditoria guardado ('+ctx.resultado.estado+') — '+resumenCorreo(resCorreo),!(resCorreo&&(resCorreo.sinDestinatarios||resCorreo.fallidos.length)));
     cerrarModalRegistro();
     await cargarAudsAuditor();
   }catch(e){toast('Error al guardar el registro.');}
@@ -3226,10 +3347,24 @@ async function guardarRegistro(){
    'STModelacion'), S.defectos (catalogo_defectos), correos_internos.
    ══════════════════════════════════════════════════════════ */
 
-const TALLAS_STANDARD_ST=['XS','S','M','L','XL','XXL'];
+const TALLAS_SETS_ST={
+  letras:['XS','S','M','L','XL','XXL'],
+  mujer:['4','6','8','10','12','14','16'],
+  hombre:['28','30','32','34','36','38','40']
+};
+function stTallasActuales(){
+  const tipo=(document.getElementById('stTipoTalla')||{}).value||'letras';
+  return TALLAS_SETS_ST[tipo]||TALLAS_SETS_ST.letras;
+}
+function stCambioTipoTalla(){
+  renderTallasCheckboxes('stTallasEsperadas',[]);
+  renderTallasCheckboxes('stTallasRecibidas',[]);
+  document.getElementById('stAvisoTallas').style.display='none';
+}
 function renderTallasCheckboxes(contId, seleccionadas){
   const cont=document.getElementById(contId);
-  cont.innerHTML=TALLAS_STANDARD_ST.map(t=>
+  const tallas=stTallasActuales();
+  cont.innerHTML=tallas.map(t=>
     '<label style="display:flex;align-items:center;gap:5px;padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer">'+
     '<input type="checkbox" class="st-talla-chk" value="'+t+'" data-cont="'+contId+'" onchange="stRecalcularTallasFaltantes()" '+(seleccionadas.includes(t)?'checked':'')+'> '+t+'</label>'
   ).join('');
@@ -3255,6 +3390,8 @@ function stCambioMarca(){
   document.getElementById('stProveedor').value='';
   document.getElementById('stColorPantone').value='';
   document.getElementById('stNomColor').value='';
+  document.getElementById('stPaq').innerHTML='<option value="">Selecciona la referencia primero...</option>';
+  document.getElementById('stPaq').disabled=true;
   document.getElementById('stRefDropdown').style.display='none';
   renderGruposCorreoSetTallas();
 }
@@ -3297,7 +3434,20 @@ document.addEventListener('mousedown',e=>{
   document.getElementById('stColorPantone').value=r['Color Pantone']||'';
   document.getElementById('stNomColor').value=r['NOM COLOR']||'';
   dropdown.style.display='none';
+  stPoblarPaq(r['REF']||'',r['Color Pantone']||'');
 });
+function stPoblarPaq(ref,colorPantone){
+  const marca=document.getElementById('stMarca').value;
+  const paqSel=document.getElementById('stPaq');
+  if(!paqSel) return;
+  const data=S.data[marca]||[];
+  const refN=norm(ref),colN=norm(colorPantone);
+  const paqs=[...new Set(data.filter(row=>norm(row['REF'])===refN&&norm(row['Color Pantone']||'')===colN)
+    .map(row=>(row['Paq']||'').toString().trim()).filter(Boolean))].sort();
+  if(!paqs.length){ paqSel.innerHTML='<option value="">Sin paquetes encontrados</option>'; paqSel.disabled=true; return; }
+  paqSel.innerHTML='<option value="">Seleccionar...</option>'+paqs.map(p=>'<option>'+p+'</option>').join('');
+  paqSel.disabled=false;
+}
 function renderGruposCorreoSetTallas(){
   const wrap=document.getElementById('stGruposCorreo');if(!wrap)return;
   const marca=document.getElementById('stMarca').value;
@@ -3423,6 +3573,9 @@ function abrirModalSetTallas(){
   document.getElementById('stProveedor').value='';
   document.getElementById('stColorPantone').value='';
   document.getElementById('stNomColor').value='';
+  document.getElementById('stPaq').innerHTML='<option value="">Selecciona la referencia primero...</option>';
+  document.getElementById('stPaq').disabled=true;
+  document.getElementById('stTipoTalla').value='letras';
   document.getElementById('stPvp').value='';
   document.getElementById('stMedidasOk').value='';
   document.getElementById('stMedidasObservacion').value='';
@@ -3437,6 +3590,9 @@ function abrirModalSetTallas(){
   addHallazgoSetTallasRow();
   document.getElementById('regSTModelacionFotoInput').value='';
   renderFotoListCampo('STModelacion');
+  S.regSTPvpFotoUrls=[];
+  document.getElementById('regSTPvpFotoInput').value='';
+  renderFotoListCampo('STPvp');
   renderGruposCorreoSetTallas();
   document.getElementById('modalSetTallas').style.display='flex';
 }
@@ -3455,6 +3611,8 @@ async function guardarSetTallas(){
   if(!S.regSTMedidasFotoUrl){ errEl.textContent='Adjunta la foto de la tabla de medidas.'; errEl.style.display='block'; return; }
   const fotosModelacion=(S.regSTModelacionFotoUrls||[]);
   if(fotosModelacion.length<3){ errEl.textContent='Adjunta al menos 3 fotos de modelación (frente, lateral, espalda).'; errEl.style.display='block'; return; }
+  const fotosPvp=(S.regSTPvpFotoUrls||[]);
+  if(fotosPvp.length<1){ errEl.textContent='Adjunta al menos 1 foto de PVP en la parrilla.'; errEl.style.display='block'; return; }
   const tallasEsperadas=stLeerTallas('stTallasEsperadas');
   const tallasRecibidas=stLeerTallas('stTallasRecibidas');
   const tallasFaltantes=tallasEsperadas.filter(t=>!tallasRecibidas.includes(t));
@@ -3466,20 +3624,23 @@ async function guardarSetTallas(){
       fecha:todayStr(),auditor:S.user,proveedor,marca,referencia,
       color_pantone:document.getElementById('stColorPantone').value||'',
       nom_color:document.getElementById('stNomColor').value||'',
+      paq:document.getElementById('stPaq').value||'',
       pvp:document.getElementById('stPvp').value||'',
       tallas_esperadas:tallasEsperadas,tallas_recibidas:tallasRecibidas,tallas_faltantes:tallasFaltantes,
       medidas_ok:medidasOkVal==='true',medidas_observacion:document.getElementById('stMedidasObservacion').value||'',
       medidas_foto_url:S.regSTMedidasFotoUrl||null,
       hallazgos,fotos_modelacion_urls:fotosModelacion.slice(),
+      pvp_foto_urls:fotosPvp.slice(),
       resultado,observaciones:document.getElementById('stObservaciones').value||''
     };
     const insertado=await sb('/rest/v1/set_tallas_registro',{method:'POST',body,prefer:'return=representation'});
     const registroId=insertado&&insertado[0]&&insertado[0].id;
-    toast('Registro de set de tallas guardado ('+resultado+')',true);
     const gruposSeleccionados=[...document.querySelectorAll('#stGruposCorreo .chk-grupo-correo-st:checked')].map(c=>c.value);
-    enviarCorreoSetTallas(body,gruposSeleccionados,registroId);
+    btn.innerHTML='<span class="spinner-inline"></span> Enviando correo...';
+    const resCorreo=await enviarCorreoSetTallas(body,gruposSeleccionados,registroId);
+    toast('Registro de set de tallas guardado ('+resultado+') — '+resumenCorreo(resCorreo),!(resCorreo&&(resCorreo.sinDestinatarios||resCorreo.fallidos.length)));
     cerrarModalSetTallas();
-    await cargarSetTallasAuditor();
+    if(S.role==='admin'){ await cargarSetTallasAdmin(); } else { await cargarSetTallasAuditor(); }
   }catch(e){ errEl.textContent='Error al guardar el registro.'; errEl.style.display='block'; }
   btn.disabled=false;btn.textContent='Guardar registro';
 }
@@ -3490,23 +3651,113 @@ async function cargarSetTallasAuditor(){
     renderSetTallasAuditor();
   }catch(e){ console.warn('Error cargando registros de set de tallas.',e); }
 }
+function filtrarSetTallasRows(rows,sufijo){
+  sufijo=sufijo||'Aud';
+  const ref=norm(document.getElementById('filtroRefSetTallas'+sufijo)?.value||'');
+  const prov=norm(document.getElementById('filtroProvSetTallas'+sufijo)?.value||'');
+  const paq=norm(document.getElementById('filtroPaqSetTallas'+sufijo)?.value||'');
+  const marca=document.getElementById('filtroMarcaSetTallas'+sufijo)?.value||'';
+  const fecha=document.getElementById('filtroFechaSetTallas'+sufijo)?.value||'';
+  const resultado=document.getElementById('filtroResultadoSetTallas'+sufijo)?.value||'';
+  return rows.filter(r=>{
+    if(ref&&!norm(r.referencia||'').includes(ref)) return false;
+    if(prov&&!norm(r.proveedor||'').includes(prov)) return false;
+    if(paq&&!norm((r.paq||'').toString()).includes(paq)) return false;
+    if(marca&&r.marca!==marca) return false;
+    if(fecha&&r.fecha!==fecha) return false;
+    if(resultado&&r.resultado!==resultado) return false;
+    return true;
+  });
+}
 function renderSetTallasAuditor(){
   const tbody=document.getElementById('tblSetTallasBody');if(!tbody)return;
-  const rows=S.setTallasRegistros||[];
+  const rows=filtrarSetTallasRows(S.setTallasRegistros||[],'Aud');
   tbody.innerHTML='';
   document.getElementById('setTallasEmpty').style.display=rows.length?'none':'block';
   rows.forEach((r,i)=>{
     const resBadge='<span class="badge '+(r.resultado==='Aprobado'?'badge-green':(r.resultado==='Rechazado'?'badge-red':'badge-blue'))+'">'+(r.resultado||'-')+'</span>';
     const tr=document.createElement('tr');
     tr.innerHTML='<td>'+(i+1)+'</td><td>'+(r.fecha||'')+'</td><td>'+(r.marca||'')+'</td><td>'+(r.proveedor||'')+'</td>'+
-      '<td><strong>'+(r.referencia||'')+'</strong></td><td>'+(r.color_pantone||'')+'</td>'+
+      '<td><strong>'+(r.referencia||'')+'</strong></td><td>'+(r.color_pantone||'')+'</td><td>'+(r.paq||'')+'</td>'+
       '<td>'+resBadge+'</td>'+
       '<td class="center"><button class="btn btn-secondary btn-sm" onclick="abrirReporteSetTallas(\''+r.id+'\')">Ver</button></td>';
     tbody.appendChild(tr);
   });
 }
+
+/* ══ Set de Tallas — vista de administrador (todos los auditores) ══ */
+async function cargarSetTallasAdmin(){
+  try{
+    const rows=await sb('/rest/v1/set_tallas_registro?select=*&order=creado_en.desc');
+    S.setTallasRegistrosAdmin=rows||[];
+    const panel=document.getElementById('stAdminAuditorDDPanel');
+    if(panel){
+      const curSel=getSelectedSTAdminAuditores();
+      panel.innerHTML='<label class="cdd-item"><input type="checkbox" id="stAdminAudDD_todos" '+(curSel.length===0?'checked':'')+' onchange="stAdminAuditorDDTodos(this)">Todos</label>';
+      (S.auditores||[]).forEach(a=>{
+        const lbl=document.createElement('label');
+        lbl.className='cdd-item';
+        lbl.innerHTML='<input type="checkbox" value="'+a.nombre+'" '+(curSel.includes(norm(a.nombre))?'checked':'')+' onchange="stAdminAuditorDDChange()">'+a.nombre;
+        panel.appendChild(lbl);
+      });
+      updateSTAdminAuditorDDLabel();
+    }
+    renderSetTallasAdmin();
+  }catch(e){ console.warn('Error cargando registros de set de tallas (admin).',e); }
+}
+function renderSetTallasAdmin(){
+  const tbody=document.getElementById('tblSetTallasAdminBody');if(!tbody)return;
+  const auditoresSel=getSelectedSTAdminAuditores();
+  let rows=filtrarSetTallasRows(S.setTallasRegistrosAdmin||[],'Admin');
+  if(auditoresSel.length) rows=rows.filter(r=>auditoresSel.includes(norm(r.auditor||'')));
+  tbody.innerHTML='';
+  const empty=document.getElementById('setTallasAdminEmpty');
+  if(empty) empty.style.display=rows.length?'none':'block';
+  rows.forEach((r,i)=>{
+    const resBadge='<span class="badge '+(r.resultado==='Aprobado'?'badge-green':(r.resultado==='Rechazado'?'badge-red':'badge-blue'))+'">'+(r.resultado||'-')+'</span>';
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+(r.fecha||'')+'</td><td>'+(r.marca||'')+'</td><td>'+(r.proveedor||'')+'</td>'+
+      '<td><strong>'+(r.referencia||'')+'</strong></td><td>'+(r.color_pantone||'')+'</td><td>'+(r.paq||'')+'</td>'+
+      '<td>'+resBadge+'</td><td>'+(r.auditor||'')+'</td>'+
+      '<td class="center"><button class="btn btn-secondary btn-sm" onclick="abrirReporteSetTallas(\''+r.id+'\')">Ver</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+function toggleSTAdminAuditorDD(e){
+  e.stopPropagation();
+  const btn=document.getElementById('stAdminAuditorDDBtn');
+  const panel=document.getElementById('stAdminAuditorDDPanel');
+  const open=panel.classList.toggle('open');
+  btn.classList.toggle('open',open);
+}
+function stAdminAuditorDDTodos(cb){
+  if(cb.checked){
+    document.querySelectorAll('#stAdminAuditorDDPanel input[type=checkbox]:not(#stAdminAudDD_todos)').forEach(c=>c.checked=false);
+  }
+  updateSTAdminAuditorDDLabel();renderSetTallasAdmin();
+}
+function stAdminAuditorDDChange(){
+  const checks=document.querySelectorAll('#stAdminAuditorDDPanel input[type=checkbox]:not(#stAdminAudDD_todos):checked');
+  document.getElementById('stAdminAudDD_todos').checked=checks.length===0;
+  updateSTAdminAuditorDDLabel();renderSetTallasAdmin();
+}
+function updateSTAdminAuditorDDLabel(){
+  const checks=[...document.querySelectorAll('#stAdminAuditorDDPanel input[type=checkbox]:not(#stAdminAudDD_todos):checked')];
+  const lbl=document.getElementById('stAdminAuditorDDLabel');
+  if(!lbl)return;
+  if(!checks.length) lbl.textContent='Todos';
+  else if(checks.length===1) lbl.textContent=checks[0].value;
+  else lbl.textContent=checks.length+' auditores';
+}
+function getSelectedSTAdminAuditores(){
+  return [...document.querySelectorAll('#stAdminAuditorDDPanel input[type=checkbox]:not(#stAdminAudDD_todos):checked')].map(c=>norm(c.value));
+}
+document.addEventListener('click',()=>{
+  document.getElementById('stAdminAuditorDDPanel')?.classList.remove('open');
+  document.getElementById('stAdminAuditorDDBtn')?.classList.remove('open');
+});
 function abrirReporteSetTallas(id){
-  const r=(S.setTallasRegistros||[]).find(x=>String(x.id)===String(id));
+  const r=(S.setTallasRegistros||[]).concat(S.setTallasRegistrosAdmin||[]).find(x=>String(x.id)===String(id));
   if(!r){toast('No se encontró el registro.');return;}
   document.getElementById('repSTSubtitulo').textContent=(r.marca||'')+' - '+(r.referencia||'')+' - '+(r.color_pantone||'')+' ('+(r.proveedor||'')+')';
   const hallazgosHtml=(r.hallazgos&&r.hallazgos.length)
@@ -3517,6 +3768,7 @@ function abrirReporteSetTallas(id){
       '</div>').join('')
     :'<p style="font-size:13px;color:var(--ink-soft)">Sin hallazgos registrados.</p>';
   const fotosModelacionHtml=(r.fotos_modelacion_urls||[]).map(function(u){return '<a href="'+u+'" target="_blank"><img src="'+u+'" style="height:60px;width:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);margin-right:6px"></a>';}).join('');
+  const fotosPvpHtml=(r.pvp_foto_urls||[]).map(function(u){return '<a href="'+u+'" target="_blank"><img src="'+u+'" style="height:60px;width:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);margin-right:6px"></a>';}).join('');
   const correoHtml=(r.correos_enviados||r.correos_fallidos)
     ?'<div style="font-size:12px;margin-top:6px">'+
       (r.correos_enviados?'<div style="color:var(--green)">✓ Correo enviado a: '+r.correos_enviados+'</div>':'')+
@@ -3524,7 +3776,7 @@ function abrirReporteSetTallas(id){
       '</div>'
     :'<div style="font-size:12px;margin-top:6px;color:var(--ink-soft)">Confirmación de envío de correo no disponible.</div>';
   document.getElementById('repSTContenido').innerHTML=
-    '<div style="font-size:13px;margin-bottom:8px"><strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+' &nbsp; <strong>PVP:</strong> '+(r.pvp||'-')+'</div>'+
+    '<div style="font-size:13px;margin-bottom:8px"><strong>Fecha:</strong> '+(r.fecha||'-')+' &nbsp; <strong>Auditor:</strong> '+(r.auditor||'-')+' &nbsp; <strong>Paq:</strong> '+(r.paq||'-')+' &nbsp; <strong>PVP:</strong> '+(r.pvp||'-')+(fotosPvpHtml?' '+fotosPvpHtml:'')+'</div>'+
     '<div style="font-size:13px;margin-bottom:8px"><strong>Tallas esperadas:</strong> '+((r.tallas_esperadas||[]).join(', ')||'-')+'</div>'+
     '<div style="font-size:13px;margin-bottom:8px"><strong>Tallas recibidas:</strong> '+((r.tallas_recibidas||[]).join(', ')||'-')+'</div>'+
     ((r.tallas_faltantes||[]).length?'<div style="font-size:13px;margin-bottom:8px;color:var(--accent)"><strong>Tallas faltantes:</strong> '+r.tallas_faltantes.join(', ')+'</div>':'')+
@@ -3547,6 +3799,7 @@ function tplSetTallas(r){
       }).join('')
     : '<tr><td style="padding:6px 0;font-size:13px;color:#8a8a8a">Sin hallazgos registrados.</td></tr>';
   const fotosModelacionHtml=(r.fotos_modelacion_urls||[]).map(function(u){return '<img src="'+u+'" style="height:90px;width:90px;object-fit:cover;border-radius:6px;margin:4px 6px 0 0">';}).join('');
+  const fotosPvpHtml=(r.pvp_foto_urls||[]).map(function(u){return '<img src="'+u+'" style="height:90px;width:90px;object-fit:cover;border-radius:6px;margin:4px 6px 0 0">';}).join('');
   const tallasFaltantesHtml=(r.tallas_faltantes&&r.tallas_faltantes.length)
     ? '<p style="margin:0 0 14px;font-size:13px;color:#c8433a;"><strong>Tallas faltantes vs. parrilla:</strong> '+r.tallas_faltantes.join(', ')+'</p>'
     : '';
@@ -3556,8 +3809,9 @@ function tplSetTallas(r){
   '<tr><td style="background:#1c1c2e;padding:22px 36px;"><span style="color:#fff;font-size:18px;letter-spacing:.5px;">Resultado Set de Tallas</span></td></tr>'+
   '<tr><td style="padding:28px 36px 8px;">'+
     '<p style="margin:0 0 4px;font-size:15px;"><strong>'+(r.proveedor||'')+'</strong></p>'+
-    '<p style="margin:0 0 18px;font-size:13px;color:#6a6a6a;">'+(r.marca||'')+' — '+(r.referencia||'')+' — '+(r.color_pantone||'')+' '+(r.nom_color||'')+'</p>'+
+    '<p style="margin:0 0 18px;font-size:13px;color:#6a6a6a;">'+(r.marca||'')+' — '+(r.referencia||'')+' — '+(r.color_pantone||'')+' '+(r.nom_color||'')+(r.paq?' — Paq '+r.paq:'')+'</p>'+
     '<p style="margin:0 0 6px;font-size:13px;"><strong>PVP:</strong> '+(r.pvp||'-')+'</p>'+
+    (fotosPvpHtml?'<p style="margin:0 0 6px;">'+fotosPvpHtml+'</p>':'')+
     '<p style="margin:0 0 6px;font-size:13px;"><strong>Tallas esperadas:</strong> '+((r.tallas_esperadas||[]).join(', ')||'-')+'</p>'+
     '<p style="margin:0 0 6px;font-size:13px;"><strong>Tallas recibidas:</strong> '+((r.tallas_recibidas||[]).join(', ')||'-')+'</p>'+
     tallasFaltantesHtml+
@@ -3600,9 +3854,10 @@ async function enviarCorreoSetTallas(r, grupos, registroId){
     if(!unicos.length){
       console.warn('No se envio el correo de set de tallas: no hay destinatarios configurados.');
       if(registroId){ try{ await sb('/rest/v1/set_tallas_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:'',correos_fallidos:''}}); }catch(ePatch0){} }
-      return;
+      return {sinDestinatarios:true,enviados:[],fallidos:[]};
     }
-    const asunto='Resultado Set de Tallas - '+r.proveedor+' - '+r.referencia+' ('+r.resultado+')';
+    const asuntoPartesST=[r.proveedor,r.referencia,r.color_pantone,(r.paq?'Paq '+r.paq:'')].filter(Boolean);
+    const asunto='Resultado Set de Tallas - '+asuntoPartesST.join(' - ')+' ('+r.resultado+')';
     const html=tplSetTallas(r);
     const exitosos=[],fallidos=[];
     for(const email of unicos){
@@ -3613,7 +3868,8 @@ async function enviarCorreoSetTallas(r, grupos, registroId){
       try{ await sb('/rest/v1/set_tallas_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:exitosos.join(', '),correos_fallidos:fallidos.join(', ')}}); }
       catch(ePatch){ console.warn('No se pudo guardar la confirmacion de correos.',ePatch); }
     }
-  }catch(e){ console.warn('No se pudo enviar el correo de set de tallas.',e); }
+    return {sinDestinatarios:false,enviados:exitosos,fallidos:fallidos};
+  }catch(e){ console.warn('No se pudo enviar el correo de set de tallas.',e); return {sinDestinatarios:false,enviados:[],fallidos:[],error:true}; }
 }
 
 /* ── Reporte de auditoria (solo lectura para auditor/proveedor, ajustable/eliminable por admin) ── */
@@ -3875,9 +4131,10 @@ async function enviarCorreoAuditoria(a, registro, grupos, registroId){
     if(!unicos.length){
       console.warn('No se envio el correo de resultado: no hay destinatarios configurados (correo del proveedor y/o correos de los grupos internos estan vacios).');
       if(registroId){ try{ await sb('/rest/v1/auditoria_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:'',correos_fallidos:''}}); }catch(ePatch0){} }
-      return;
+      return {sinDestinatarios:true,enviados:[],fallidos:[]};
     }
-    const asunto='Resultado de auditoria - '+a.proveedor+' - '+a.ref+' ('+registro.estado+')';
+    const asuntoPartesAud=[a.proveedor,a.ref,a.color_pantone,(a.paq?'Paq '+a.paq:'')].filter(Boolean);
+    const asunto='Resultado de auditoria - '+asuntoPartesAud.join(' - ')+' ('+registro.estado+')';
     const html=tplReporteAuditoria(a,registro);
     const exitosos=[],fallidos=[];
     for(const email of unicos){
@@ -3888,7 +4145,8 @@ async function enviarCorreoAuditoria(a, registro, grupos, registroId){
       try{ await sb('/rest/v1/auditoria_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:exitosos.join(', '),correos_fallidos:fallidos.join(', ')}}); }
       catch(ePatch){ console.warn('No se pudo guardar la confirmacion de correos enviados.',ePatch); }
     }
-  }catch(e){ console.warn('No se pudo enviar el correo de resultado de auditoria.',e); }
+    return {sinDestinatarios:false,enviados:exitosos,fallidos:fallidos};
+  }catch(e){ console.warn('No se pudo enviar el correo de resultado de auditoria.',e); return {sinDestinatarios:false,enviados:[],fallidos:[],error:true}; }
 }
 
 document.addEventListener('keydown',e=>{
@@ -3945,10 +4203,22 @@ init();
       <div class="form-row"><label>Proveedor</label><input type="text" id="stProveedor"></div>
       <div class="form-row"><label>Color Pantone</label><input type="text" id="stColorPantone"></div>
     </div>
-    <div class="form-row"><label>Nombre color</label><input type="text" id="stNomColor"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>Nombre color</label><input type="text" id="stNomColor"></div>
+      <div class="form-row"><label>Paq</label>
+        <select id="stPaq" disabled><option value="">Selecciona la referencia primero...</option></select>
+      </div>
+    </div>
 
     <div class="divider"></div>
     <div style="font-weight:700;font-size:14px;margin-bottom:8px">Tallas (referencia — no bloquea el registro)</div>
+    <div class="form-row" style="max-width:280px"><label>Tipo de talla</label>
+      <select id="stTipoTalla" onchange="stCambioTipoTalla()">
+        <option value="letras">Letras (XS-XXL)</option>
+        <option value="mujer">Numérica Mujer (4-16)</option>
+        <option value="hombre">Numérica Hombre (28-40)</option>
+      </select>
+    </div>
     <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Tallas que exige la parrilla</div>
     <div id="stTallasEsperadas" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
     <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Tallas recibidas en el set</div>
@@ -3991,6 +4261,14 @@ init();
     <div class="divider"></div>
     <div style="font-weight:700;font-size:14px;margin-bottom:8px">4. PVP confirmado en parrilla</div>
     <div class="form-row"><label>PVP ($)</label><input type="text" id="stPvp" inputmode="numeric" placeholder="$ 0" oninput="formatearPvp(this)"></div>
+    <div class="form-row">
+      <label>Foto(s) de PVP en parrilla — mínimo 1 <span style="color:var(--accent)">*</span></label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0" id="regSTPvpFotoBtn">Foto<input type="file" accept="image/*" capture="environment" style="display:none" id="regSTPvpFotoInput" onchange="handleRegFotoMultiple(this,'STPvp')"></label>
+        <div id="regSTPvpFotoList" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <span id="regSTPvpFotoStatus" style="font-size:11px;color:var(--ink-soft)">Obligatoria (hasta 2)</span>
+      </div>
+    </div>
 
     <div class="divider"></div>
     <div style="font-weight:700;font-size:14px;margin-bottom:8px">5. Observaciones de calidad</div>
