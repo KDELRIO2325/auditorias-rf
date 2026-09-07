@@ -687,7 +687,7 @@ tbody td.center{text-align:center}
             <tbody id="tblSetTallasAdminBody"></tbody>
           </table>
         </div>
-        <p id="setTallasAdminEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay registros de set de tallas.</p>
+        <p id="setTallasAdminEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay registros de set de tallas de hoy. Usa los filtros de arriba (o el de Auditor) para buscar en el histórico.</p>
       </div>
     </div>
 
@@ -798,7 +798,7 @@ tbody td.center{text-align:center}
           <tbody id="tblSetTallasBody"></tbody>
         </table>
       </div>
-      <p id="setTallasEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">Aún no has registrado ningún set de tallas.</p>
+      <p id="setTallasEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay registros de set de tallas de hoy. Usa los filtros de arriba para buscar en el histórico.</p>
     </div>
     </div>
   </div>
@@ -3651,7 +3651,7 @@ async function cargarSetTallasAuditor(){
     renderSetTallasAuditor();
   }catch(e){ console.warn('Error cargando registros de set de tallas.',e); }
 }
-function filtrarSetTallasRows(rows,sufijo){
+function filtrarSetTallasRows(rows,sufijo,hayFiltroExtra){
   sufijo=sufijo||'Aud';
   const ref=norm(document.getElementById('filtroRefSetTallas'+sufijo)?.value||'');
   const prov=norm(document.getElementById('filtroProvSetTallas'+sufijo)?.value||'');
@@ -3659,6 +3659,13 @@ function filtrarSetTallasRows(rows,sufijo){
   const marca=document.getElementById('filtroMarcaSetTallas'+sufijo)?.value||'';
   const fecha=document.getElementById('filtroFechaSetTallas'+sufijo)?.value||'';
   const resultado=document.getElementById('filtroResultadoSetTallas'+sufijo)?.value||'';
+  // Sin ningun filtro activo: solo el dia de hoy (el historico queda oculto,
+  // se recupera usando cualquiera de los filtros, igual que en Solicitudes).
+  const hayFiltros=!!(ref||prov||paq||marca||fecha||resultado||hayFiltroExtra);
+  if(!hayFiltros){
+    const hoy=todayStr();
+    return rows.filter(r=>(r.fecha||'')===hoy);
+  }
   return rows.filter(r=>{
     if(ref&&!norm(r.referencia||'').includes(ref)) return false;
     if(prov&&!norm(r.proveedor||'').includes(prov)) return false;
@@ -3708,7 +3715,7 @@ async function cargarSetTallasAdmin(){
 function renderSetTallasAdmin(){
   const tbody=document.getElementById('tblSetTallasAdminBody');if(!tbody)return;
   const auditoresSel=getSelectedSTAdminAuditores();
-  let rows=filtrarSetTallasRows(S.setTallasRegistrosAdmin||[],'Admin');
+  let rows=filtrarSetTallasRows(S.setTallasRegistrosAdmin||[],'Admin',auditoresSel.length>0);
   if(auditoresSel.length) rows=rows.filter(r=>auditoresSel.includes(norm(r.auditor||'')));
   tbody.innerHTML='';
   const empty=document.getElementById('setTallasAdminEmpty');
@@ -3794,12 +3801,12 @@ function tplSetTallas(r){
     ?r.hallazgos.map(function(h){
         return '<tr><td style="padding:6px 0;border-bottom:1px solid #e2ddd8;font-size:13px">'+
           '<strong>'+h.defecto_nombre+'</strong> ('+h.criterio+')'+(h.descripcion?' — '+h.descripcion:'')+
-          (h.fotos&&h.fotos.length?'<br>'+h.fotos.map(function(u){return '<img src="'+u+'" style="height:60px;width:60px;object-fit:cover;border-radius:4px;margin:4px 4px 0 0">';}).join(''):'')+
+          (h.fotos&&h.fotos.length?'<br>'+h.fotos.map(function(u){return '<a href="'+u+'"><img src="'+u+'" style="height:60px;width:60px;object-fit:cover;border-radius:4px;margin:4px 4px 0 0"></a>';}).join(''):'')+
         '</td></tr>';
       }).join('')
     : '<tr><td style="padding:6px 0;font-size:13px;color:#8a8a8a">Sin hallazgos registrados.</td></tr>';
-  const fotosModelacionHtml=(r.fotos_modelacion_urls||[]).map(function(u){return '<img src="'+u+'" style="height:90px;width:90px;object-fit:cover;border-radius:6px;margin:4px 6px 0 0">';}).join('');
-  const fotosPvpHtml=(r.pvp_foto_urls||[]).map(function(u){return '<img src="'+u+'" style="height:90px;width:90px;object-fit:cover;border-radius:6px;margin:4px 6px 0 0">';}).join('');
+  const fotosModelacionHtml=(r.fotos_modelacion_urls||[]).map(function(u){return '<a href="'+u+'"><img src="'+u+'" style="height:90px;width:90px;object-fit:cover;border-radius:6px;margin:4px 6px 0 0"></a>';}).join('');
+  const fotosPvpHtml=(r.pvp_foto_urls||[]).map(function(u){return '<a href="'+u+'"><img src="'+u+'" style="height:90px;width:90px;object-fit:cover;border-radius:6px;margin:4px 6px 0 0"></a>';}).join('');
   const tallasFaltantesHtml=(r.tallas_faltantes&&r.tallas_faltantes.length)
     ? '<p style="margin:0 0 14px;font-size:13px;color:#c8433a;"><strong>Tallas faltantes vs. parrilla:</strong> '+r.tallas_faltantes.join(', ')+'</p>'
     : '';
@@ -3815,7 +3822,7 @@ function tplSetTallas(r){
     '<p style="margin:0 0 6px;font-size:13px;"><strong>Tallas esperadas:</strong> '+((r.tallas_esperadas||[]).join(', ')||'-')+'</p>'+
     '<p style="margin:0 0 6px;font-size:13px;"><strong>Tallas recibidas:</strong> '+((r.tallas_recibidas||[]).join(', ')||'-')+'</p>'+
     tallasFaltantesHtml+
-    '<p style="margin:0 0 18px;font-size:13px;"><strong>Medidas dentro de tolerancia:</strong> '+(r.medidas_ok?'Sí':'No')+(r.medidas_observacion?' — '+r.medidas_observacion:'')+(r.medidas_foto_url?' <img src="'+r.medidas_foto_url+'" style="height:50px;width:50px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-left:6px">':'')+'</p>'+
+    '<p style="margin:0 0 18px;font-size:13px;"><strong>Medidas dentro de tolerancia:</strong> '+(r.medidas_ok?'Sí':'No')+(r.medidas_observacion?' — '+r.medidas_observacion:'')+(r.medidas_foto_url?' <a href="'+r.medidas_foto_url+'"><img src="'+r.medidas_foto_url+'" style="height:50px;width:50px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-left:6px"></a>':'')+'</p>'+
   '</td></tr>'+
   '<tr><td style="padding:0 36px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-weight:700;font-size:13px;padding-bottom:6px;border-bottom:2px solid #1c1c2e;">Hallazgos</td></tr>'+hallazgosHtml+'</table></td></tr>'+
   '<tr><td style="padding:20px 36px 0;"><div style="font-weight:700;font-size:13px;margin-bottom:8px;">Fotos de modelación</div>'+fotosModelacionHtml+'</td></tr>'+
