@@ -296,6 +296,7 @@ tbody td.center{text-align:center}
       <button class="tab-btn" onclick="switchTab('tabCorreos',this)">Correos internos</button>
       <button class="tab-btn" onclick="switchTab('tabSetTallasAdmin',this)">Set de Tallas</button>
       <button class="tab-btn" onclick="switchTab('tabArchivo',this)">Archivo base</button>
+      <button class="tab-btn" onclick="switchTab('tabPresupuesto',this)">Presupuesto</button>
     </div>
 
     <!-- TAB: Solicitudes -->
@@ -578,6 +579,8 @@ tbody td.center{text-align:center}
               <option value="Diseño Moft">Diseño Moft</option>
               <option value="Planeación Rifle">Planeación Rifle</option>
               <option value="Planeación Moft">Planeación Moft</option>
+              <option value="CEDI">CEDI</option>
+              <option value="Tesorería">Tesorería</option>
             </select>
           </div>
           <div class="form-row"><label>Correo</label><input type="email" id="ciCorreo" placeholder="correo@empresa.com"></div>
@@ -719,6 +722,62 @@ tbody td.center{text-align:center}
         </label>
         <div id="archivoOk" class="alert alert-success" style="display:none;margin-top:14px"></div>
         <button class="btn btn-primary" style="display:none;margin-top:10px" id="btnDescActualizado" onclick="descargarActualizado()">⬇ Descargar con estados actualizados</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tabPresupuesto">
+      <div class="card">
+        <div class="card-title">Presupuesto de ingresos y facturación</div>
+        <div class="card-sub">Proyección semanal (lunes a domingo) desde "Fecha compromiso Coordinador" del archivo base. Excluye referencias en estado En cedi, Cancelado o Canc x incum.</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <label style="font-size:12px;color:var(--ink-soft)">Marca:</label>
+          <select id="presMarca" onchange="renderPresupuesto()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
+            <option value="">Todas</option>
+            <option value="Rifle">Rifle</option>
+            <option value="Moft">Moft</option>
+          </select>
+          <label style="font-size:12px;color:var(--ink-soft)">Desde:</label>
+          <input type="date" id="presDesde" onchange="renderPresupuesto()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
+          <label style="font-size:12px;color:var(--ink-soft)">Hasta:</label>
+          <input type="date" id="presHasta" onchange="renderPresupuesto()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
+          <button class="refresh-btn" onclick="actualizarPresupuestoDatos()">🔄 Actualizar</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;gap:10px">
+          <div class="card-title" style="margin-bottom:0">Presupuesto de ingresos — CEDI</div>
+          <button class="btn btn-primary btn-sm" id="btnReporteCedi" onclick="generarReportePresupuesto('cedi')">✉ Generar y enviar reporte a CEDI</button>
+        </div>
+        <div class="card-sub">Unidades pendientes por ingresar (Ppto unids menos Unid real ingresadas) por semana, proveedor y referencia.</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>Semana</th><th>Marca</th><th>Proveedor</th><th>REF</th><th>Paq</th><th>Canal</th><th class="center">Unid. pendientes</th></tr>
+            </thead>
+            <tbody id="tblPresupuestoCedi"></tbody>
+          </table>
+        </div>
+        <p id="presCediEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay datos en el rango seleccionado.</p>
+        <p style="margin:12px 0 0;font-size:13px;text-align:right"><strong>Total unidades pendientes: <span id="presCediTotal">0</span></strong></p>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;gap:10px">
+          <div class="card-title" style="margin-bottom:0">Presupuesto de facturación — Tesorería</div>
+          <button class="btn btn-primary btn-sm" id="btnReporteTesoreria" onclick="generarReportePresupuesto('tesoreria')">✉ Generar y enviar reporte a Tesorería</button>
+        </div>
+        <div class="card-sub">Costo total por semana y proveedor, para planear pagos.</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>Semana</th><th>Marca</th><th>Proveedor</th><th class="center">Costo total</th></tr>
+            </thead>
+            <tbody id="tblPresupuestoTesoreria"></tbody>
+          </table>
+        </div>
+        <p id="presTesEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay datos en el rango seleccionado.</p>
+        <p style="margin:12px 0 0;font-size:13px;text-align:right"><strong>Total facturación: <span id="presTesTotal">$0</span></strong></p>
       </div>
     </div>
   </div>
@@ -931,7 +990,12 @@ async function sb(path, opts = {}) {
   });
   if (res.status === 204) return null;
   if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  /* Algunas respuestas exitosas (ej. POST con Prefer: return=minimal) llegan
+     con status 200/201 pero cuerpo VACIO -- no siempre 204. Antes esto
+     causaba 'Unexpected end of JSON input' en res.json() pese a que la
+     operacion si se habia guardado en Supabase. */
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 /* ══ STATE ═══════════════════════════════════════════════ */
@@ -2253,7 +2317,7 @@ function parsearHoja(wb,marca){
   const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd'});
   const headerRow=1; // Ambas marcas: headers en fila 1
   const headers=raw[headerRow]||[];
-  const keep=['PROVEEDOR','REF','Paq','CANAL','Proceso','Requerido Bod','Ppto unids','Color Pantone','NOM COLOR','# OC','PREDISTRIBUIDO'];
+  const keep=['PROVEEDOR','REF','Paq','CANAL','Proceso','Requerido Bod','Ppto unids','Color Pantone','NOM COLOR','# OC','PREDISTRIBUIDO','Fecha compromiso Coordinador','Costo Total','Unid real ingresadas'];
   const idx={};
   keep.forEach(k=>{const i=headers.findIndex(h=>(h||'').toString().trim()===k);if(i>=0)idx[k]=i;});
   const rows=[];
@@ -2264,6 +2328,219 @@ function parsearHoja(wb,marca){
     rows.push(obj);
   }
   return rows;
+}
+
+/* ══ PRESUPUESTO DE INGRESOS (CEDI) Y FACTURACION (TESORERIA) — Fase 3b ══ */
+function mondayOf(d){
+  const r=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const day=(r.getDay()+6)%7; // lunes=0 ... domingo=6
+  r.setDate(r.getDate()-day);
+  return r;
+}
+function sundayOf(mondayDate){
+  const r=new Date(mondayDate.getFullYear(),mondayDate.getMonth(),mondayDate.getDate());
+  r.setDate(r.getDate()+6);
+  return r;
+}
+function fmtFechaCorta(d){
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+}
+function weekLabel(mondayDate){
+  const dom=sundayOf(mondayDate);
+  return fmtFechaCorta(mondayDate)+' al '+fmtFechaCorta(dom)+' de '+dom.getFullYear();
+}
+function procesoExcluidoPresupuesto(row){
+  const p=norm(row['Proceso']||'');
+  return p.includes('EN CEDI')||p.includes('CANCELADO')||p.includes('CANC X INCUM');
+}
+function calcularPresupuesto(){
+  const marcaSel=document.getElementById('presMarca')?.value||'';
+  const desdeStr=document.getElementById('presDesde')?.value||'';
+  const hastaStr=document.getElementById('presHasta')?.value||'';
+  const desde=desdeStr?new Date(desdeStr+'T00:00:00'):null;
+  const hasta=hastaStr?new Date(hastaStr+'T23:59:59'):null;
+  const marcas=marcaSel?[marcaSel]:['Rifle','Moft'];
+  const cedi={};      // semanaKey -> { monday, proveedores: { proveedor: { ref: {marca,paq,canal,ppto,real,pendiente} } } }
+  const tesoreria={}; // semanaKey -> { monday, proveedores: { proveedor: {marcas:Set,costo} } }
+  marcas.forEach(marca=>{
+    (S.data[marca]||[]).forEach(row=>{
+      if(procesoExcluidoPresupuesto(row)) return;
+      const fecha=parseFechaBod(row['Fecha compromiso Coordinador']);
+      if(!fecha) return;
+      if(desde&&fecha<desde) return;
+      if(hasta&&fecha>hasta) return;
+      const monday=mondayOf(fecha);
+      const semanaKey=localDateStr(monday);
+      const proveedor=(row['PROVEEDOR']||'—').toString().trim()||'—';
+      const ref=(row['REF']||'—').toString().trim()||'—';
+      const ppto=parseUnits(row['Ppto unids']);
+      const real=parseUnits(row['Unid real ingresadas']);
+      const pendiente=Math.max(0,ppto-real);
+      const costo=parseUnits(row['Costo Total']);
+      if(!cedi[semanaKey]) cedi[semanaKey]={monday,proveedores:{}};
+      if(!cedi[semanaKey].proveedores[proveedor]) cedi[semanaKey].proveedores[proveedor]={};
+      cedi[semanaKey].proveedores[proveedor][ref]={marca,paq:row['Paq']||'',canal:row['CANAL']||'',ppto,real,pendiente};
+      if(!tesoreria[semanaKey]) tesoreria[semanaKey]={monday,proveedores:{}};
+      if(!tesoreria[semanaKey].proveedores[proveedor]) tesoreria[semanaKey].proveedores[proveedor]={marcas:new Set(),costo:0};
+      tesoreria[semanaKey].proveedores[proveedor].marcas.add(marca);
+      tesoreria[semanaKey].proveedores[proveedor].costo+=costo;
+    });
+  });
+  return {cedi,tesoreria};
+}
+function renderPresupuesto(){
+  const {cedi,tesoreria}=calcularPresupuesto();
+  const tbCedi=document.getElementById('tblPresupuestoCedi');
+  if(tbCedi){
+    let html='',granTotal=0,huboFilas=false;
+    Object.keys(cedi).sort().forEach(sk=>{
+      const {monday,proveedores}=cedi[sk];
+      let subtotal=0,filasSemana='';
+      Object.keys(proveedores).sort().forEach(prov=>{
+        const refs=proveedores[prov];
+        Object.keys(refs).sort().forEach(ref=>{
+          const d=refs[ref];
+          if(d.pendiente<=0) return;
+          subtotal+=d.pendiente;
+          filasSemana+='<tr><td>'+weekLabel(monday)+'</td><td>'+d.marca+'</td><td>'+prov+'</td><td>'+ref+'</td><td>'+(d.paq||'—')+'</td><td>'+(d.canal||'—')+'</td><td class="center">'+d.pendiente.toLocaleString()+'</td></tr>';
+        });
+      });
+      if(!filasSemana) return;
+      huboFilas=true;
+      granTotal+=subtotal;
+      html+=filasSemana+'<tr style="background:#f5f3ef;font-weight:700"><td colspan="6" style="text-align:right">Subtotal semana '+weekLabel(monday)+':</td><td class="center">'+subtotal.toLocaleString()+'</td></tr>';
+    });
+    tbCedi.innerHTML=html;
+    document.getElementById('presCediEmpty').style.display=huboFilas?'none':'block';
+    document.getElementById('presCediTotal').textContent=granTotal.toLocaleString();
+  }
+  const tbTes=document.getElementById('tblPresupuestoTesoreria');
+  if(tbTes){
+    let html='',granTotal=0,huboFilas=false;
+    Object.keys(tesoreria).sort().forEach(sk=>{
+      const {monday,proveedores}=tesoreria[sk];
+      let subtotal=0,filasSemana='';
+      Object.keys(proveedores).sort().forEach(prov=>{
+        const d=proveedores[prov];
+        if(!d.costo) return;
+        subtotal+=d.costo;
+        filasSemana+='<tr><td>'+weekLabel(monday)+'</td><td>'+[...d.marcas].join(', ')+'</td><td>'+prov+'</td><td class="center">$'+d.costo.toLocaleString()+'</td></tr>';
+      });
+      if(!filasSemana) return;
+      huboFilas=true;
+      granTotal+=subtotal;
+      html+=filasSemana+'<tr style="background:#f5f3ef;font-weight:700"><td colspan="3" style="text-align:right">Subtotal semana '+weekLabel(monday)+':</td><td class="center">$'+subtotal.toLocaleString()+'</td></tr>';
+    });
+    tbTes.innerHTML=html;
+    document.getElementById('presTesEmpty').style.display=huboFilas?'none':'block';
+    document.getElementById('presTesTotal').textContent='$'+granTotal.toLocaleString();
+  }
+}
+async function actualizarPresupuestoDatos(){
+  try{
+    const rows=await sb('/rest/v1/archivo_base?select=id,datos,actualizado_en');
+    if(rows) rows.forEach(r=>{
+      if(r.id===1&&r.datos){S.data.Rifle=r.datos;mostrarUltimaActualizacion('Rifle',r.actualizado_en);}
+      if(r.id===2&&r.datos){S.data.Moft=r.datos;mostrarUltimaActualizacion('Moft',r.actualizado_en);}
+    });
+  }catch(e){ console.warn('No se pudo refrescar el archivo base.',e); }
+  renderPresupuesto();
+}
+async function cargarPresupuesto(){
+  if(!document.getElementById('presDesde').value) document.getElementById('presDesde').value=todayStr();
+  if(!document.getElementById('presHasta').value){
+    const d=new Date();d.setDate(d.getDate()+60);
+    document.getElementById('presHasta').value=localDateStr(d);
+  }
+  await actualizarPresupuestoDatos();
+}
+function tplReportePresupuesto(tipo,filasHtml,totalStr,desde,hasta){
+  const titulo=tipo==='cedi'?'Presupuesto de ingresos — CEDI':'Presupuesto de facturación — Tesorería';
+  const columnas=tipo==='cedi'
+    ?'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">REF</th><th style="padding:8px;border:1px solid #333">Paq</th><th style="padding:8px;border:1px solid #333">Canal</th><th style="padding:8px;border:1px solid #333">Unid. pendientes</th>'
+    :'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">Costo total</th>';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f0ede8;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0ede8;padding:32px 16px;"><tr><td align="center">
+<table width="720" cellpadding="0" cellspacing="0" style="max-width:720px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);">
+  <tr><td style="background:#1a1a2e;padding:28px 36px;text-align:center;">
+    <p style="margin:0;font-family:Georgia,serif;font-size:20px;color:#fff;">Programación de <span style="color:#c8433a;">Auditorías</span></p>
+    <p style="margin:5px 0 0;font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;">Rifle &amp; Moft — GCO</p>
+  </td></tr>
+  <tr><td style="background:#c8433a;height:4px;"></td></tr>
+  <tr><td style="padding:32px 36px 28px;">
+    <p style="margin:0 0 6px;font-size:12px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">${titulo}</p>
+    <h1 style="margin:0 0 6px;font-family:Georgia,serif;font-size:20px;color:#1a1a2e;">Del ${desde} al ${hasta}</h1>
+    <p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;">Generado manualmente desde el aplicativo de auditorías.</p>
+    <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:12px">
+      <thead><tr style="background:#1a1a2e;color:#fff">${columnas}</tr></thead>
+      <tbody>${filasHtml}</tbody>
+    </table>
+    <p style="margin:20px 0 0;font-size:14px;color:#1a1a2e;text-align:right;"><strong>Total: ${totalStr}</strong></p>
+  </td></tr>
+  <tr><td style="background:#f7f5f2;border-top:1px solid #e2ddd8;padding:16px 36px;text-align:center;">
+    <p style="margin:0;font-size:11px;color:#b0b0b0;">Correo automático — No responder · Sistema de Programación de Auditorías · GCO</p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+}
+async function generarReportePresupuesto(tipo){
+  const grupo=tipo==='cedi'?'CEDI':'Tesorería';
+  const btnId=tipo==='cedi'?'btnReporteCedi':'btnReporteTesoreria';
+  const btn=document.getElementById(btnId);
+  const txtOriginal=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  try{
+    const desde=document.getElementById('presDesde').value||todayStr();
+    const hasta=document.getElementById('presHasta').value||todayStr();
+    const {cedi,tesoreria}=calcularPresupuesto();
+    let filasHtml='',totalNum=0;
+    if(tipo==='cedi'){
+      Object.keys(cedi).sort().forEach(sk=>{
+        const {monday,proveedores}=cedi[sk];
+        Object.keys(proveedores).sort().forEach(prov=>{
+          const refs=proveedores[prov];
+          Object.keys(refs).sort().forEach(ref=>{
+            const d=refs[ref];
+            if(d.pendiente<=0) return;
+            totalNum+=d.pendiente;
+            filasHtml+='<tr><td style="padding:6px 8px;border:1px solid #ddd">'+weekLabel(monday)+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.marca+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+prov+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+ref+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.paq||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.canal||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+d.pendiente.toLocaleString()+'</td></tr>';
+          });
+        });
+      });
+    } else {
+      Object.keys(tesoreria).sort().forEach(sk=>{
+        const {monday,proveedores}=tesoreria[sk];
+        Object.keys(proveedores).sort().forEach(prov=>{
+          const d=proveedores[prov];
+          if(!d.costo) return;
+          totalNum+=d.costo;
+          filasHtml+='<tr><td style="padding:6px 8px;border:1px solid #ddd">'+weekLabel(monday)+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+[...d.marcas].join(', ')+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+prov+'</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">$'+d.costo.toLocaleString()+'</td></tr>';
+        });
+      });
+    }
+    if(!filasHtml){toast('No hay datos en el rango seleccionado para generar el reporte.');return;}
+    const totalStr=tipo==='cedi'?totalNum.toLocaleString()+' unidades':'$'+totalNum.toLocaleString();
+    const html=tplReportePresupuesto(tipo,filasHtml,totalStr,desde,hasta);
+    const asunto=(tipo==='cedi'?'Presupuesto de ingresos CEDI':'Presupuesto de facturación Tesorería')+' — '+desde+' a '+hasta;
+    let destinatarios=[];
+    try{
+      const rows=await sb('/rest/v1/correos_internos?select=correo&grupo=eq.'+encodeURIComponent(grupo));
+      destinatarios=(rows||[]).map(r=>r.correo).filter(Boolean);
+    }catch(eDest){ console.warn('No se pudieron leer los correos del grupo '+grupo,eDest); }
+    if(!destinatarios.length){
+      toast('No hay correos configurados para el grupo "'+grupo+'" en Correos internos. Agrega uno antes de enviar.');
+      return;
+    }
+    const exitosos=[],fallidos=[];
+    for(const email of destinatarios){
+      try{ await sendBrevo(email,grupo,asunto,html); exitosos.push(email); }
+      catch(eEnv){ console.warn('Error enviando reporte de presupuesto a '+email,eEnv); fallidos.push(email); }
+    }
+    toast('Reporte de '+grupo+': '+resumenCorreo({sinDestinatarios:false,enviados:exitosos,fallidos:fallidos}),fallidos.length===0);
+  } catch(e){
+    toast('Error generando el reporte: '+e.message);
+  } finally {
+    if(btn){btn.disabled=false;btn.textContent=txtOriginal;}
+  }
 }
 
 /* ══ EXPORT ══════════════════════════════════════════════ */
@@ -2505,6 +2782,7 @@ function switchTab(panelId,btn){
   if (panelId==='tabDefectos') cargarDefectos();
   if (panelId==='tabCorreos') cargarGruposCorreo();
   if (panelId==='tabSetTallasAdmin') cargarSetTallasAdmin();
+  if (panelId==='tabPresupuesto') cargarPresupuesto();
 }
 /* Pestanas del rol auditor (screenAuditor): escopadas a ese screen para no
    interferir con las pestanas del admin, que switchTab() controla de forma
