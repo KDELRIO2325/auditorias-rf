@@ -1032,10 +1032,15 @@ function fuzzy(rowProv, u){
 }
 function parseUnits(val){
   if (!val && val !== 0) return 0;
-  // Elimina separadores de miles (punto colombiano y coma anglosajona) y espacios
-  const clean = val.toString().trim().replace(/[.,\s]/g,'');
+  const s = val.toString().trim();
+  // Detecta negativo en formato contable: "(1.234)" o con signo "-1234"
+  const negativo = /^\(.*\)$/.test(s) || s.startsWith('-');
+  // Elimina TODO lo que no sea dígito: separadores de miles (punto/coma), espacios,
+  // símbolo de moneda ($), paréntesis de negativo contable, etc.
+  const clean = s.replace(/[^0-9]/g,'');
   const n = parseInt(clean, 10);
-  return isNaN(n) ? 0 : n;
+  if (isNaN(n)) return 0;
+  return negativo ? -n : n;
 }
 function parseFechaBod(raw){
   if (!raw) return null;
@@ -1106,11 +1111,12 @@ document.addEventListener('click',()=>{
 });
 function resumenCorreo(res){
   if(!res) return 'estado del correo desconocido.';
-  if(res.sinDestinatarios) return 'no se envió correo (sin destinatarios configurados).';
+  const avisoProveedor=res.proveedorLookupFallo?(' ⚠ No se encontró un proveedor registrado que coincida con "'+res.proveedorLookupFallo+'" — revisa el catálogo de Proveedores.'):'';
+  if(res.sinDestinatarios) return 'no se envió correo (sin destinatarios configurados).'+avisoProveedor;
   const okCount=(res.enviados||[]).length, failCount=(res.fallidos||[]).length;
-  if(failCount===0) return 'correo enviado a '+okCount+' destinatario'+(okCount===1?'':'s')+'.';
-  if(okCount===0) return 'error enviando el correo a '+failCount+' destinatario'+(failCount===1?'':'s')+'.';
-  return 'correo enviado a '+okCount+', con error en '+failCount+' destinatario'+(failCount===1?'':'s')+'.';
+  if(failCount===0) return 'correo enviado a '+okCount+' destinatario'+(okCount===1?'':'s')+'.'+avisoProveedor;
+  if(okCount===0) return 'error enviando el correo a '+failCount+' destinatario'+(failCount===1?'':'s')+'.'+avisoProveedor;
+  return 'correo enviado a '+okCount+', con error en '+failCount+' destinatario'+(failCount===1?'':'s')+'.'+avisoProveedor;
 }
 function toast(msg, ok=false){
   const el = document.createElement('div');
@@ -3916,7 +3922,7 @@ async function guardarSetTallas(){
     const gruposSeleccionados=[...document.querySelectorAll('#stGruposCorreo .chk-grupo-correo-st:checked')].map(c=>c.value);
     btn.innerHTML='<span class="spinner-inline"></span> Enviando correo...';
     const resCorreo=await enviarCorreoSetTallas(body,gruposSeleccionados,registroId);
-    toast('Registro de set de tallas guardado ('+resultado+') — '+resumenCorreo(resCorreo),!(resCorreo&&(resCorreo.sinDestinatarios||resCorreo.fallidos.length)));
+    toast('Registro de set de tallas guardado ('+resultado+') — '+resumenCorreo(resCorreo),!(resCorreo&&(resCorreo.sinDestinatarios||resCorreo.fallidos.length||resCorreo.proveedorLookupFallo)));
     cerrarModalSetTallas();
     if(S.role==='admin'){ await cargarSetTallasAdmin(); } else { await cargarSetTallasAuditor(); }
   }catch(e){ errEl.textContent='Error al guardar el registro.'; errEl.style.display='block'; }
@@ -4118,14 +4124,23 @@ function tplSetTallas(r){
 async function enviarCorreoSetTallas(r, grupos, registroId){
   try{
     const destinatarios=[];
+    let proveedorLookupFallo=null;
     try{
       const provRows=await sb('/rest/v1/proveedores?select=usuario,nombre,email,email2,correos_auditoria');
-      const rProvNorm=norm(r.proveedor||'');
-      const prov=(provRows||[]).find(p=>norm(p.usuario||'')===rProvNorm||norm(p.nombre||'')===rProvNorm);
+      // fuzzy() (no igualdad exacta) porque el nombre de proveedor puede venir
+      // tal cual del archivo base (columna PROVEEDOR) y no siempre coincide
+      // letra por letra con el usuario/nombre registrado -- incluso puede
+      // variar entre Rifle y Moft para el mismo proveedor real (ej. "FX MODA"
+      // vs "FM MODA SAS"). fuzzy() ya es la funcion que usa el resto de la app
+      // para este mismo problema (ver fuzzy(row['PROVEEDOR'],uNorm)).
+      const prov=(provRows||[]).find(p=>fuzzy(r.proveedor,norm(p.usuario||''))||fuzzy(r.proveedor,norm(p.nombre||'')));
       if(prov){
         if(prov.email) destinatarios.push(prov.email);
         if(prov.email2) destinatarios.push(prov.email2);
         if(prov.correos_auditoria) prov.correos_auditoria.split(',').forEach(c=>{c=c.trim();if(c)destinatarios.push(c);});
+      } else {
+        proveedorLookupFallo=r.proveedor||'(sin nombre)';
+        console.warn('No se encontro una cuenta de proveedor que coincida con "'+proveedorLookupFallo+'".');
       }
     }catch(eProv){ console.warn('No se pudieron leer los correos del proveedor.',eProv); }
     if(grupos&&grupos.length){
@@ -4139,7 +4154,7 @@ async function enviarCorreoSetTallas(r, grupos, registroId){
     if(!unicos.length){
       console.warn('No se envio el correo de set de tallas: no hay destinatarios configurados.');
       if(registroId){ try{ await sb('/rest/v1/set_tallas_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:'',correos_fallidos:''}}); }catch(ePatch0){} }
-      return {sinDestinatarios:true,enviados:[],fallidos:[]};
+      return {sinDestinatarios:true,enviados:[],fallidos:[],proveedorLookupFallo};
     }
     const asuntoPartesST=[r.proveedor,r.referencia,r.color_pantone,(r.paq?'Paq '+r.paq:'')].filter(Boolean);
     const asunto='Resultado Set de Tallas - '+asuntoPartesST.join(' - ')+' ('+r.resultado+')';
@@ -4153,7 +4168,7 @@ async function enviarCorreoSetTallas(r, grupos, registroId){
       try{ await sb('/rest/v1/set_tallas_registro?id=eq.'+registroId,{method:'PATCH',body:{correos_enviados:exitosos.join(', '),correos_fallidos:fallidos.join(', ')}}); }
       catch(ePatch){ console.warn('No se pudo guardar la confirmacion de correos.',ePatch); }
     }
-    return {sinDestinatarios:false,enviados:exitosos,fallidos:fallidos};
+    return {sinDestinatarios:false,enviados:exitosos,fallidos:fallidos,proveedorLookupFallo};
   }catch(e){ console.warn('No se pudo enviar el correo de set de tallas.',e); return {sinDestinatarios:false,enviados:[],fallidos:[],error:true}; }
 }
 
@@ -4355,14 +4370,23 @@ function tplAjusteResultado(r){
 async function enviarCorreoAjusteResultado(r){
   try{
     const destinatarios=[];
+    let proveedorLookupFallo=null;
     try{
       const provRows=await sb('/rest/v1/proveedores?select=usuario,nombre,email,email2,correos_auditoria');
-      const rProvNorm=norm(r.proveedor||'');
-      const prov=(provRows||[]).find(p=>norm(p.usuario||'')===rProvNorm||norm(p.nombre||'')===rProvNorm);
+      // fuzzy() (no igualdad exacta) porque el nombre de proveedor puede venir
+      // tal cual del archivo base (columna PROVEEDOR) y no siempre coincide
+      // letra por letra con el usuario/nombre registrado -- incluso puede
+      // variar entre Rifle y Moft para el mismo proveedor real (ej. "FX MODA"
+      // vs "FM MODA SAS"). fuzzy() ya es la funcion que usa el resto de la app
+      // para este mismo problema (ver fuzzy(row['PROVEEDOR'],uNorm)).
+      const prov=(provRows||[]).find(p=>fuzzy(r.proveedor,norm(p.usuario||''))||fuzzy(r.proveedor,norm(p.nombre||'')));
       if(prov){
         if(prov.email) destinatarios.push(prov.email);
         if(prov.email2) destinatarios.push(prov.email2);
         if(prov.correos_auditoria) prov.correos_auditoria.split(',').forEach(c=>{c=c.trim();if(c)destinatarios.push(c);});
+      } else {
+        proveedorLookupFallo=r.proveedor||'(sin nombre)';
+        console.warn('No se encontro una cuenta de proveedor que coincida con "'+proveedorLookupFallo+'".');
       }
     }catch(eProv){ console.warn('No se pudieron leer los correos del proveedor.',eProv); }
     try{
