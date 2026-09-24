@@ -748,13 +748,18 @@ tbody td.center{text-align:center}
           <select id="presProveedor" onchange="renderPresupuesto()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font);min-width:160px">
             <option value="">Todos</option>
           </select>
-          <label style="font-size:12px;color:var(--ink-soft)" title="% de las unidades pendientes que se espera que entren por CEDI; el resto se asume distribución directa a tiendas. Aplica a todos los proveedores/semanas salvo que edites el % en una fila puntual de la tabla de abajo.">% CEDI por defecto:</label>
-          <input type="number" id="presPctCedi" min="0" max="100" value="100" onchange="renderPresupuesto()" style="width:64px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
+          <label class="presSoloCedi" style="font-size:12px;color:var(--ink-soft)" title="% de las unidades pendientes que se espera que entren por CEDI; el resto se asume distribución directa a tiendas. Aplica a todos los proveedores/semanas salvo que edites el % en una fila puntual de la tabla de abajo.">% CEDI por defecto:</label>
+          <input class="presSoloCedi" type="number" id="presPctCedi" min="0" max="100" value="100" onchange="renderPresupuesto()" style="width:64px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
           <button class="refresh-btn" onclick="actualizarPresupuestoDatos()">🔄 Actualizar</button>
         </div>
       </div>
 
-      <div class="card" style="margin-top:16px">
+      <div class="tabs" id="presSubTabs" style="margin-top:16px">
+        <button class="tab-btn active" id="presBtnIngresos" onclick="switchPresVista('ingresos')">Presupuesto de ingresos (CEDI)</button>
+        <button class="tab-btn" id="presBtnFacturacion" onclick="switchPresVista('facturacion')">Presupuesto de facturación (Tesorería)</button>
+      </div>
+
+      <div class="card" id="presVistaIngresos">
         <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;gap:10px">
           <div class="card-title" style="margin-bottom:0">Presupuesto de ingresos — CEDI</div>
           <button class="btn btn-primary btn-sm" id="btnReporteCedi" onclick="generarReportePresupuesto('cedi')">✉ Generar y enviar reporte a CEDI</button>
@@ -772,12 +777,12 @@ tbody td.center{text-align:center}
         <p style="margin:12px 0 0;font-size:13px;text-align:right"><strong>Total unidades pendientes: <span id="presCediTotal">0</span> &nbsp;|&nbsp; CEDI: <span id="presCediTotalCedi">0</span> &nbsp;|&nbsp; Distribución directa: <span id="presCediTotalDirecta">0</span></strong></p>
       </div>
 
-      <div class="card" style="margin-top:16px">
+      <div class="card" id="presVistaFacturacion" style="display:none">
         <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;gap:10px">
           <div class="card-title" style="margin-bottom:0">Presupuesto de facturación — Tesorería</div>
           <button class="btn btn-primary btn-sm" id="btnReporteTesoreria" onclick="generarReportePresupuesto('tesoreria')">✉ Generar y enviar reporte a Tesorería</button>
         </div>
-        <div class="card-sub">Costo total por semana y proveedor, para planear pagos.</div>
+        <div class="card-sub">Costo de las unidades pendientes por ingresar (Ppto unids menos Unid real ingresadas) × costo unitario, por semana y proveedor. No incluye referencias En cedi, Cancelado o Canc x incum.</div>
         <div class="tbl-wrap">
           <table>
             <thead>
@@ -1041,6 +1046,72 @@ function fuzzy(rowProv, u){
   if (r.split(' ').filter(w=>w.length>3).some(w=>u.includes(w))) return true;
   return false;
 }
+/* Match estricto nombre del archivo base -> cuenta de proveedor (correos).
+   Solo palabras completas y sin palabras genericas (MODA, TEXTIL, SAS...), para
+   evitar que "FX MODA" caiga en TERMIMODA. Si hay empate entre dos cuentas, no
+   devuelve ninguna (mejor avisar que enviar al proveedor equivocado). */
+const PROV_STOP=new Set(['S','A','SA','SAS','LTDA','CI','C','I','DE','DEL','LA','EL','Y','BY','EN','REORGANIZACION','COMPANY','TEXTIL','TEXTILES','CONFECCIONES','CREACIONES','COMERCIALIZADORA','INTERNACIONAL','INDUSTRIAS','MODA','GRUPO','INVERSIONES']);
+function provTokens(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().split(' ').filter(w=>w&&!PROV_STOP.has(w));}
+function scoreProvClave(base,clave,esNombre){
+  const A=provTokens(base),B=provTokens(clave);
+  if(!A.length||!B.length) return 0;
+  const ca=A.join(''),cb=B.join('');
+  if(ca===cb) return 100;
+  if(!esNombre) return 0;
+  if(B.every(t=>A.includes(t))) return 80+B.length;
+  if(A.every(t=>B.includes(t))) return 70;
+  if(cb.length>=2&&ca.startsWith(cb)) return 60;
+  return 0;
+}
+function matchCuentaProveedor(base,cuentas){
+  let best=null,bs=0,empate=false;
+  (cuentas||[]).forEach(p=>{
+    const sc=Math.max(scoreProvClave(base,p.usuario,false),scoreProvClave(base,p.nombre,true));
+    if(sc>bs){bs=sc;best=p;empate=false;}
+    else if(sc>0&&sc===bs&&p!==best){empate=true;}
+  });
+  return (bs>0&&!empate)?best:null;
+}
+/* ¿La fila del archivo base (PROVEEDOR) pertenece a esta cuenta?
+   clave = usuario (sesion de proveedor) o nombre (dropdown del admin).
+   La fila se asigna a la cuenta con mejor coincidencia entre TODAS las cuentas,
+   asi un proveedor solo ve lo suyo (FX ve FX MODA, no lo ve TERMIMODA). */
+function getCuentasProv(){ return (S.cuentasProv&&S.cuentasProv.length)?S.cuentasProv:(S.proveedores||[]); }
+function perteneceAProveedor(rowProv, clave){
+  if(!clave) return false;
+  const cuentas=getCuentasProv();
+  const nc=norm(clave);
+  const cuenta=cuentas.find(p=>norm(p.usuario||'')===nc)||cuentas.find(p=>norm(p.nombre||'')===nc);
+  if(!cuenta){
+    // Sin catalogo cargado: comparacion estricta contra la clave (nunca la laxa de antes)
+    return scoreProvClave(rowProv,clave,false)>0||scoreProvClave(rowProv,clave,true)>0;
+  }
+  const best=matchCuentaProveedor(rowProv,cuentas);
+  return !!best&&norm(best.usuario||'')===norm(cuenta.usuario||'');
+}
+async function cargarCuentasProv(){
+  try{ S.cuentasProv=await sb('/rest/v1/proveedores?select=usuario,nombre')||[]; }
+  catch(e){ console.warn('No se pudo cargar el catalogo de proveedores.',e); }
+}
+/* Montos: entiende "12345.67" (Value2 del sync), "12.345,67" y "$ 12.345" */
+function parseMoney(val){
+  if(val===null||val===undefined||val==='') return 0;
+  let s=val.toString().trim();
+  const neg=/^\(.*\)$/.test(s)||s.startsWith('-');
+  s=s.replace(/[^0-9.,]/g,'');
+  if(!s) return 0;
+  const lc=s.lastIndexOf(','),lp=s.lastIndexOf('.');
+  const last=Math.max(lc,lp);
+  const dec=last>=0?s.length-last-1:0;
+  if(last>=0&&dec>=1&&dec<=2){
+    s=s.slice(0,last).replace(/[.,]/g,'')+'.'+s.slice(last+1);
+  } else {
+    s=s.replace(/[.,]/g,'');
+  }
+  const n=parseFloat(s);
+  if(isNaN(n)) return 0;
+  return neg?-n:n;
+}
 function parseUnits(val){
   if (!val && val !== 0) return 0;
   const s = val.toString().trim();
@@ -1295,6 +1366,7 @@ async function doLogin(){
     }
     if (match&&match.role==='proveedor'){
       S.user=match.nombre;S.userLogin=match.usuario;S.role='proveedor';
+      await cargarCuentasProv();
       document.getElementById('userLabel').textContent=match.nombre;
       document.getElementById('headerButtons').style.display='flex';
       if (!S.data.Rifle.length||!S.data.Moft.length){
@@ -1385,7 +1457,7 @@ function doRefSearch(){
   if (!data.length){paqSel.innerHTML='<option value="">Sin datos</option>';paqSel.disabled=true;hint.textContent='Admin no ha cargado '+marca;hint.className='hint warn';return;}
   const uNorm=norm(S.user||'');
   // Mostrar PAQ elegibles (excluye bloqueados, incluye mes futuro con advertencia)
-  const all=data.filter(row=>norm(row['REF'])===ref&&fuzzy(row['PROVEEDOR'],uNorm)&&isElegible(row));
+  const all=data.filter(row=>norm(row['REF'])===ref&&perteneceAProveedor(row['PROVEEDOR'],S.userLogin||S.user)&&isElegible(row));
   if (!all.length){paqSel.innerHTML='<option value="">REF no encontrada</option>';paqSel.disabled=true;hint.textContent='REF no encontrada para tu proveedor en '+marca;hint.className='hint warn';return;}
   const paqs=[...new Set(all.map(r=>(r['Paq']||'').toString().trim()).filter(Boolean))].sort();
   paqSel.innerHTML='<option value="">Seleccionar…</option>'+paqs.map(p=>'<option>'+p+'</option>').join('');
@@ -1424,7 +1496,7 @@ function doRefSearch2(){
   // Mostrar PAQ elegibles (excluye bloqueados, incluye mes futuro con advertencia)
   const all=data.filter(row=>{
     if (norm(row['REF'])!==ref) return false;
-    if (uNorm&&!fuzzy(row['PROVEEDOR'],uNorm)) return false;
+    if (provSel&&!perteneceAProveedor(row['PROVEEDOR'],provSel)) return false;
     return isElegible(row);
   });
   if (!all.length){paqSel.innerHTML='<option value="">REF no encontrada</option>';paqSel.disabled=true;hint.textContent='REF no encontrada';hint.className='hint warn';return;}
@@ -1442,7 +1514,7 @@ function checkPaqWarning(){
   if (!marca||!ref||!paq){warn.style.display='none';return;}
   const data=S.data[marca]||[];
   const uNorm=norm(S.user||'');
-  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq)&&fuzzy(r['PROVEEDOR'],uNorm)&&isElegible(r));
+  const row=data.find(r=>norm(r['REF'])===ref&&norm((r['Paq']||'').toString())===norm(paq)&&perteneceAProveedor(r['PROVEEDOR'],S.userLogin||S.user)&&isElegible(r));
   if (row&&!isPriority(row)){
     warn.textContent='⚠️ Este paquete no está autorizado para ingresar este mes. Solo podrá ingresar con autorización del jefe de producción.';
     warn.style.display='block';
@@ -1471,7 +1543,7 @@ async function buscarReferencia(){
   S.step1={marca,ref,paq};
   const uNorm=norm(S.user||'');
   const data=S.data[marca]||[];
-  const matches=data.filter(row=>norm(row['REF'])===ref&&norm((row['Paq']||'').toString())===norm(paq)&&fuzzy(row["PROVEEDOR"],uNorm)&&isElegible(row));
+  const matches=data.filter(row=>norm(row['REF'])===ref&&norm((row['Paq']||'').toString())===norm(paq)&&perteneceAProveedor(row["PROVEEDOR"],S.userLogin||S.user)&&isElegible(row));
   if (!matches.length){toast('No se encontró esa referencia.');return;}
   renderMatches(matches);
   goStep(2);
@@ -1490,7 +1562,7 @@ async function buscarReferencia2(){
   S.step1_2={marca,ref,paq,provNombre};
   const uNorm=norm(provNombre);
   const data=S.data[marca]||[];
-  const matches=data.filter(row=>norm(row['REF'])===ref&&norm((row['Paq']||'').toString())===norm(paq)&&fuzzy(row["PROVEEDOR"],uNorm)&&isElegible(row));
+  const matches=data.filter(row=>norm(row['REF'])===ref&&norm((row['Paq']||'').toString())===norm(paq)&&perteneceAProveedor(row["PROVEEDOR"],provNombre)&&isElegible(row));
   if (!matches.length){toast('No se encontró esa referencia para ese proveedor.');return;}
   renderMatches2(matches);
   document.getElementById('adminMatchSection').style.display='block';
@@ -2431,19 +2503,21 @@ function calcularPresupuesto(){
       const ppto=parseUnits(row['Ppto unids']);
       const real=parseUnits(row['Unid real ingresadas']);
       const pendiente=Math.max(0,ppto-real);
-      const costoUnitario=parseUnits(row['Costo']);
-      const costoFormula=parseUnits(row['Costo Total']);
+      const costoUnitario=parseMoney(row['Costo']);
+      const costoFormula=parseMoney(row['Costo Total']);
       // Preferimos calcular Costo Total nosotros mismos (unidades x costo unitario)
       // porque la formula del archivo fuente ha mostrado errores/valores vacios intermitentes.
       // Si no hay costo unitario disponible, usamos el valor de la formula como respaldo.
-      const costo=costoUnitario>0?(costoUnitario*ppto):costoFormula;
+      // Facturacion = costo de las unidades PENDIENTES (Ppto - Unid real ingresadas).
+      // Filas En cedi / Cancelado / Canc x incum ya se excluyeron arriba.
+      const costo=costoUnitario>0?(costoUnitario*pendiente):(ppto>0?costoFormula*pendiente/ppto:0);
       if(!cedi[semanaKey]) cedi[semanaKey]={monday,proveedores:{}};
       if(!cedi[semanaKey].proveedores[proveedor]) cedi[semanaKey].proveedores[proveedor]={};
       cedi[semanaKey].proveedores[proveedor][ref]={marca,paq:row['Paq']||'',canal:row['CANAL']||'',ppto,real,pendiente};
       if(!tesoreria[semanaKey]) tesoreria[semanaKey]={monday,proveedores:{}};
       if(!tesoreria[semanaKey].proveedores[proveedor]) tesoreria[semanaKey].proveedores[proveedor]={marcas:new Set(),costo:0};
       tesoreria[semanaKey].proveedores[proveedor].marcas.add(marca);
-      tesoreria[semanaKey].proveedores[proveedor].costo+=costo;
+      tesoreria[semanaKey].proveedores[proveedor].costo+=Math.round(costo);
     });
   });
   return {cedi,tesoreria};
@@ -2529,7 +2603,17 @@ async function actualizarPresupuestoDatos(){
   poblarProveedoresPresupuesto();
   renderPresupuesto();
 }
+function switchPresVista(v){
+  S.presVista=(v==='facturacion')?'facturacion':'ingresos';
+  const ing=S.presVista==='ingresos';
+  document.getElementById('presVistaIngresos').style.display=ing?'':'none';
+  document.getElementById('presVistaFacturacion').style.display=ing?'none':'';
+  document.getElementById('presBtnIngresos').classList.toggle('active',ing);
+  document.getElementById('presBtnFacturacion').classList.toggle('active',!ing);
+  document.querySelectorAll('.presSoloCedi').forEach(el=>el.style.display=ing?'':'none');
+}
 async function cargarPresupuesto(){
+  switchPresVista(S.presVista||'ingresos');
   if(!document.getElementById('presDesde').value) document.getElementById('presDesde').value=todayStr();
   if(!document.getElementById('presHasta').value){
     const d=new Date();d.setDate(d.getDate()+60);
@@ -4209,13 +4293,9 @@ async function enviarCorreoSetTallas(r, grupos, registroId){
     let proveedorLookupFallo=null;
     try{
       const provRows=await sb('/rest/v1/proveedores?select=usuario,nombre,email,email2,correos_auditoria');
-      // fuzzy() (no igualdad exacta) porque el nombre de proveedor puede venir
-      // tal cual del archivo base (columna PROVEEDOR) y no siempre coincide
-      // letra por letra con el usuario/nombre registrado -- incluso puede
-      // variar entre Rifle y Moft para el mismo proveedor real (ej. "FX MODA"
-      // vs "FM MODA SAS"). fuzzy() ya es la funcion que usa el resto de la app
-      // para este mismo problema (ver fuzzy(row['PROVEEDOR'],uNorm)).
-      const prov=(provRows||[]).find(p=>fuzzy(r.proveedor,norm(p.usuario||''))||fuzzy(r.proveedor,norm(p.nombre||'')));
+      // matchCuentaProveedor(): coincidencia estricta por palabras completas
+      // (24 sep 2026). Reemplaza fuzzy(), que mandaba FX MODA a TERMIMODA.
+      const prov=matchCuentaProveedor(r.proveedor,provRows);
       if(prov){
         if(prov.email) destinatarios.push(prov.email);
         if(prov.email2) destinatarios.push(prov.email2);
@@ -4455,13 +4535,9 @@ async function enviarCorreoAjusteResultado(r){
     let proveedorLookupFallo=null;
     try{
       const provRows=await sb('/rest/v1/proveedores?select=usuario,nombre,email,email2,correos_auditoria');
-      // fuzzy() (no igualdad exacta) porque el nombre de proveedor puede venir
-      // tal cual del archivo base (columna PROVEEDOR) y no siempre coincide
-      // letra por letra con el usuario/nombre registrado -- incluso puede
-      // variar entre Rifle y Moft para el mismo proveedor real (ej. "FX MODA"
-      // vs "FM MODA SAS"). fuzzy() ya es la funcion que usa el resto de la app
-      // para este mismo problema (ver fuzzy(row['PROVEEDOR'],uNorm)).
-      const prov=(provRows||[]).find(p=>fuzzy(r.proveedor,norm(p.usuario||''))||fuzzy(r.proveedor,norm(p.nombre||'')));
+      // matchCuentaProveedor(): coincidencia estricta por palabras completas
+      // (24 sep 2026). Reemplaza fuzzy(), que mandaba FX MODA a TERMIMODA.
+      const prov=matchCuentaProveedor(r.proveedor,provRows);
       if(prov){
         if(prov.email) destinatarios.push(prov.email);
         if(prov.email2) destinatarios.push(prov.email2);
@@ -4504,7 +4580,7 @@ async function enviarCorreoAuditoria(a, registro, grupos, registroId){
     try{
       const provRows=await sb('/rest/v1/proveedores?select=usuario,nombre,email,email2,correos_auditoria');
       const aProvNorm=norm(a.proveedor||'');
-      const prov=(provRows||[]).find(p=>norm(p.usuario||'')===aProvNorm||norm(p.nombre||'')===aProvNorm);
+      const prov=(provRows||[]).find(p=>norm(p.usuario||'')===aProvNorm||norm(p.nombre||'')===aProvNorm)||matchCuentaProveedor(a.proveedor,provRows);
       if(prov){
         if(prov.email) destinatarios.push(prov.email);
         if(prov.email2) destinatarios.push(prov.email2);
