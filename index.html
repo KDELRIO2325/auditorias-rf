@@ -124,6 +124,16 @@ tbody td.center{text-align:center}
 .cdd-item:hover{background:var(--surface)}
 .cdd-item input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0}
 .cdd-item:has(input:checked){background:var(--accent-lt);color:var(--accent);font-weight:700}
+/* Filtros multi-seleccion de Presupuesto */
+.pres-dd-btn{padding:6px 10px;font-size:13px;border-radius:6px;gap:8px}
+.pres-dd-btn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.pres-dd-panel{max-height:320px;min-width:100%}
+.pres-prov-panel{min-width:280px}
+.pres-dd-tools{position:sticky;top:0;background:var(--card);padding:8px 10px;border-bottom:1px solid var(--border);z-index:1}
+.pres-dd-tools input{width:100%;box-sizing:border-box;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)}
+.pres-dd-var{font-size:11px;color:var(--ink-soft);font-weight:400;display:block}
+.pres-fecha-off{opacity:.45}
+@media (max-width:640px){.pres-dd{min-width:100% !important;width:100%}.pres-prov-panel{min-width:100%}}
 </style>
 </head>
 <body>
@@ -741,13 +751,24 @@ tbody td.center{text-align:center}
           <label style="font-size:12px;color:var(--ink-soft)">Hasta:</label>
           <input type="date" id="presHasta" onchange="renderPresupuesto()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
           <label style="font-size:12px;color:var(--ink-soft)">Mes:</label>
-          <select id="presMesRapido" onchange="aplicarMesRapido()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
-            <option value="">Personalizado</option>
-          </select>
+          <div class="cdd-wrap pres-dd" id="presMesWrap" style="min-width:170px">
+            <button type="button" class="cdd-btn pres-dd-btn" id="presMesBtn" onclick="togglePresDD(event,'presMes')"><span id="presMesLabel">Personalizado</span><span>▾</span></button>
+            <div class="cdd-panel pres-dd-panel" id="presMesPanel" onclick="event.stopPropagation()"></div>
+          </div>
           <label style="font-size:12px;color:var(--ink-soft)">Proveedor:</label>
-          <select id="presProveedor" onchange="renderPresupuesto()" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font);min-width:160px">
-            <option value="">Todos</option>
-          </select>
+          <div class="cdd-wrap pres-dd" id="presProvWrap" style="min-width:220px">
+            <button type="button" class="cdd-btn pres-dd-btn" id="presProvBtn" onclick="togglePresDD(event,'presProv')"><span id="presProvLabel">Todos</span><span>▾</span></button>
+            <div class="cdd-panel pres-dd-panel pres-prov-panel" id="presProvPanel" onclick="event.stopPropagation()">
+              <div class="pres-dd-tools">
+                <input type="text" id="presProvBuscar" placeholder="Buscar proveedor..." oninput="filtrarProvPres()" autocomplete="off">
+                <div style="display:flex;gap:6px;margin-top:6px">
+                  <button type="button" class="refresh-btn" onclick="marcarVisiblesProvPres(true)">Marcar visibles</button>
+                  <button type="button" class="refresh-btn" onclick="marcarVisiblesProvPres(false)">Limpiar</button>
+                </div>
+              </div>
+              <div id="presProvLista"></div>
+            </div>
+          </div>
           <label class="presSoloCedi" style="font-size:12px;color:var(--ink-soft)" title="% de las unidades pendientes que se espera que entren por CEDI; el resto se asume distribución directa a tiendas. Aplica a todos los proveedores/semanas salvo que edites el % en una fila puntual de la tabla de abajo.">% CEDI por defecto:</label>
           <input class="presSoloCedi" type="number" id="presPctCedi" min="0" max="100" value="100" onchange="renderPresupuesto()" style="width:64px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
           <button class="refresh-btn" onclick="actualizarPresupuestoDatos()">🔄 Actualizar</button>
@@ -2443,51 +2464,153 @@ function procesoExcluidoPresupuesto(row){
   return p.includes('EN CEDI')||p.includes('CANCELADO')||p.includes('CANC X INCUM');
 }
 const MESES_ES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-function poblarProveedoresPresupuesto(){
-  const sel=document.getElementById('presProveedor');
-  if(!sel) return;
-  const actual=sel.value;
-  const set=new Set();
+/* Unificacion de proveedores (solo Presupuesto): ignora mayusculas, tildes, espacios,
+   puntuacion y sufijos societarios (S.A.S, SAS, S.A., LTDA, E.U.). No modifica el archivo base.
+   "/" cuenta como separador: DYN/TEXTIFULL = DYN TEXTIFULL (=DYN), distinto de TEXTIFULL. */
+function claveProvPres(nombre){
+  let t=(nombre||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim();
+  for(let i=0;i<2;i++) t=t.replace(/(^|[\s.,\/-])(S\.?\s?A\.?\s?S|S\.?\s?A|LTDA|E\.?\s?U)\.?\s*$/,'').trim();
+  return t.replace(/[^A-Z0-9]/g,'');
+}
+function construirMapaProvPres(){
+  const map={}; // clave -> {display, variantes:{nombre:conteo}}
   ['Rifle','Moft'].forEach(m=>(S.data[m]||[]).forEach(r=>{
-    const p=(r['PROVEEDOR']||'').toString().trim();
-    if(p) set.add(p);
+    const p=(r['PROVEEDOR']||'').toString().trim().replace(/\s+/g,' ');
+    if(!p) return;
+    const k=claveProvPres(p)||p;
+    if(!map[k]) map[k]={display:'',variantes:{}};
+    map[k].variantes[p]=(map[k].variantes[p]||0)+1;
   }));
-  const arr=[...set].sort((a,b)=>a.localeCompare(b,'es'));
-  sel.innerHTML='<option value="">Todos</option>'+arr.map(p=>'<option value="'+p.replace(/"/g,'&quot;')+'">'+p+'</option>').join('');
-  if(arr.includes(actual)) sel.value=actual;
+  Object.values(map).forEach(o=>{
+    // Nombre a mostrar: la variante mas frecuente, en MAYUSCULAS
+    const top=Object.entries(o.variantes).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0][0];
+    o.display=top.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
+  });
+  S.presProvMap=map;
+  return map;
+}
+function nombreProvPres(raw){
+  const p=(raw||'').toString().trim().replace(/\s+/g,' ');
+  if(!p) return {clave:'—',display:'—'};
+  const k=claveProvPres(p)||p;
+  const o=(S.presProvMap||{})[k];
+  return {clave:k,display:o?o.display:p.toUpperCase()};
+}
+function togglePresDD(e,id){
+  e.stopPropagation();
+  ['presMes','presProv'].forEach(x=>{
+    const pn=document.getElementById(x+'Panel'),bt=document.getElementById(x+'Btn');
+    if(!pn) return;
+    const abrir=(x===id)?!pn.classList.contains('open'):false;
+    pn.classList.toggle('open',abrir); bt.classList.toggle('open',abrir);
+  });
+  if(id==='presProv'&&document.getElementById('presProvPanel').classList.contains('open')){
+    const b=document.getElementById('presProvBuscar'); if(b){b.focus();}
+  }
+}
+document.addEventListener('click',e=>{
+  if(e.target.closest&&e.target.closest('.pres-dd')) return;
+  ['presMes','presProv'].forEach(x=>{
+    document.getElementById(x+'Panel')?.classList.remove('open');
+    document.getElementById(x+'Btn')?.classList.remove('open');
+  });
+});
+function getProvSelPres(){
+  return [...document.querySelectorAll('#presProvLista input[type=checkbox]:checked')].map(c=>c.value);
+}
+function poblarProveedoresPresupuesto(){
+  const lista=document.getElementById('presProvLista');
+  if(!lista) return;
+  const actuales=new Set(getProvSelPres());
+  const map=construirMapaProvPres();
+  const claves=Object.keys(map).sort((a,b)=>map[a].display.localeCompare(map[b].display,'es'));
+  const esc=v=>v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  lista.innerHTML=claves.map(k=>{
+    const o=map[k],vars=Object.keys(o.variantes);
+    const sub=vars.length>1?'<span class="pres-dd-var">Unifica: '+esc(vars.join(' · '))+'</span>':'';
+    return '<label class="cdd-item" data-buscar="'+esc(k+' '+o.display+' '+vars.join(' ').toUpperCase())+'"><input type="checkbox" value="'+esc(k)+'"'+(actuales.has(k)?' checked':'')+' onchange="cambioProvPres()"><span>'+esc(o.display)+sub+'</span></label>';
+  }).join('')||'<div style="padding:8px 12px;font-size:12px;color:var(--ink-soft)">Sin proveedores.</div>';
+  filtrarProvPres();
+  actualizarLabelProvPres();
+}
+function filtrarProvPres(){
+  const q=(document.getElementById('presProvBuscar')?.value||'');
+  const qn=q.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim();
+  const qc=claveProvPres(q);
+  document.querySelectorAll('#presProvLista .cdd-item').forEach(l=>{
+    const txt=l.getAttribute('data-buscar')||'';
+    l.style.display=(!qn||txt.includes(qn)||(qc&&txt.includes(qc)))?'':'none';
+  });
+}
+function marcarVisiblesProvPres(marcar){
+  document.querySelectorAll('#presProvLista .cdd-item').forEach(l=>{
+    if(marcar&&l.style.display==='none') return;
+    const cb=l.querySelector('input'); if(cb) cb.checked=marcar;
+  });
+  cambioProvPres();
+}
+function cambioProvPres(){ actualizarLabelProvPres(); renderPresupuesto(); }
+function actualizarLabelProvPres(){
+  const sel=getProvSelPres(),lbl=document.getElementById('presProvLabel');
+  if(!lbl) return;
+  if(!sel.length) lbl.textContent='Todos';
+  else if(sel.length===1) lbl.textContent=((S.presProvMap||{})[sel[0]]||{}).display||sel[0];
+  else lbl.textContent=sel.length+' proveedores';
 }
 function poblarMesesPresupuesto(){
-  const sel=document.getElementById('presMesRapido');
-  if(!sel) return;
+  const panel=document.getElementById('presMesPanel');
+  if(!panel) return;
+  const actuales=new Set(getMesesSelPres());
   const hoy=new Date();
-  let html='<option value="">Personalizado</option>';
+  let html='<label class="cdd-item"><input type="checkbox" id="presMes_ninguno"'+(actuales.size?'':' checked')+' onchange="limpiarMesesPres()">Personalizado (Desde/Hasta)</label>';
   for(let i=-2;i<=9;i++){
     const d=new Date(hoy.getFullYear(),hoy.getMonth()+i,1);
     const val=d.getFullYear()+'-'+(d.getMonth()+1);
-    html+='<option value="'+val+'">'+MESES_ES[d.getMonth()]+' '+d.getFullYear()+'</option>';
+    html+='<label class="cdd-item"><input type="checkbox" class="presMesCb" value="'+val+'"'+(actuales.has(val)?' checked':'')+' onchange="cambioMesPres()">'+MESES_ES[d.getMonth()]+' '+d.getFullYear()+'</label>';
   }
-  sel.innerHTML=html;
+  panel.innerHTML=html;
+  aplicarEstadoMesesPres();
 }
-function aplicarMesRapido(){
-  const sel=document.getElementById('presMesRapido');
-  if(!sel||!sel.value) return;
-  const [y,m]=sel.value.split('-').map(Number);
-  const desde=new Date(y,m-1,1);
-  const hasta=new Date(y,m,0);
-  document.getElementById('presDesde').value=localDateStr(desde);
-  document.getElementById('presHasta').value=localDateStr(hasta);
-  renderPresupuesto();
+function getMesesSelPres(){
+  return [...document.querySelectorAll('#presMesPanel .presMesCb:checked')].map(c=>c.value);
+}
+function limpiarMesesPres(){
+  document.querySelectorAll('#presMesPanel .presMesCb').forEach(c=>c.checked=false);
+  cambioMesPres();
+}
+function cambioMesPres(){ aplicarEstadoMesesPres(); renderPresupuesto(); }
+function etiquetaMesPres(v){ const [y,m]=v.split('-').map(Number); return MESES_ES[m-1]+' '+y; }
+function aplicarEstadoMesesPres(){
+  const sel=getMesesSelPres().sort((a,b)=>{const [ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number);return ya-yb||ma-mb;});
+  const ning=document.getElementById('presMes_ninguno'); if(ning) ning.checked=!sel.length;
+  const lbl=document.getElementById('presMesLabel');
+  if(lbl) lbl.textContent=!sel.length?'Personalizado':(sel.length===1?etiquetaMesPres(sel[0]):sel.length+' meses');
+  // Con meses marcados, Desde/Hasta no aplican
+  ['presDesde','presHasta'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.disabled=sel.length>0; el.classList.toggle('pres-fecha-off',sel.length>0);
+    el.title=sel.length?'Desactivado: se están usando los meses marcados':'';
+  });
+}
+function periodoPresupuestoTexto(){
+  const sel=getMesesSelPres().sort((a,b)=>{const [ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number);return ya-yb||ma-mb;});
+  if(sel.length) return {titulo:sel.map(etiquetaMesPres).join(', '),asunto:sel.map(etiquetaMesPres).join(', ')};
+  const desde=document.getElementById('presDesde').value||todayStr();
+  const hasta=document.getElementById('presHasta').value||todayStr();
+  return {titulo:'Del '+desde+' al '+hasta,asunto:desde+' a '+hasta};
 }
 function calcularPresupuesto(){
   const marcaSel=document.getElementById('presMarca')?.value||'';
   const desdeStr=document.getElementById('presDesde')?.value||'';
   const hastaStr=document.getElementById('presHasta')?.value||'';
-  const desde=desdeStr?new Date(desdeStr+'T00:00:00'):null;
-  const hasta=hastaStr?new Date(hastaStr+'T23:59:59'):null;
+  const mesesSel=new Set(getMesesSelPres());
+  const desde=(!mesesSel.size&&desdeStr)?new Date(desdeStr+'T00:00:00'):null;
+  const hasta=(!mesesSel.size&&hastaStr)?new Date(hastaStr+'T23:59:59'):null;
   const marcas=marcaSel?[marcaSel]:['Rifle','Moft'];
   const cedi={};      // semanaKey -> { monday, proveedores: { proveedor: { ref: {marca,paq,canal,ppto,real,pendiente} } } }
   const tesoreria={}; // semanaKey -> { monday, proveedores: { proveedor: {marcas:Set,costo} } }
-  const provSel=(document.getElementById('presProveedor')?.value||'').trim();
+  const provSel=new Set(getProvSelPres());
+  if(!S.presProvMap) construirMapaProvPres();
   marcas.forEach(marca=>{
     (S.data[marca]||[]).forEach(row=>{
       if(procesoExcluidoPresupuesto(row)) return;
@@ -2495,8 +2618,10 @@ function calcularPresupuesto(){
       if(!fecha) return;
       if(desde&&fecha<desde) return;
       if(hasta&&fecha>hasta) return;
-      const proveedor=(row['PROVEEDOR']||'—').toString().trim()||'—';
-      if(provSel&&proveedor!==provSel) return;
+      if(mesesSel.size&&!mesesSel.has(fecha.getFullYear()+'-'+(fecha.getMonth()+1))) return;
+      const provInfo=nombreProvPres(row['PROVEEDOR']);
+      if(provSel.size&&!provSel.has(provInfo.clave)) return;
+      const proveedor=provInfo.display;
       const monday=mondayOf(fecha);
       const semanaKey=localDateStr(monday);
       const ref=(row['REF']||'—').toString().trim()||'—';
@@ -2513,7 +2638,10 @@ function calcularPresupuesto(){
       const costo=costoUnitario>0?(costoUnitario*pendiente):(ppto>0?costoFormula*pendiente/ppto:0);
       if(!cedi[semanaKey]) cedi[semanaKey]={monday,proveedores:{}};
       if(!cedi[semanaKey].proveedores[proveedor]) cedi[semanaKey].proveedores[proveedor]={};
-      cedi[semanaKey].proveedores[proveedor][ref]={marca,paq:row['Paq']||'',canal:row['CANAL']||'',ppto,real,pendiente};
+      const refKey=ref+'||'+marca;
+      const prev=cedi[semanaKey].proveedores[proveedor][refKey];
+      if(prev){ prev.ppto+=ppto; prev.real+=real; prev.pendiente+=pendiente; }
+      else cedi[semanaKey].proveedores[proveedor][refKey]={ref,marca,paq:row['Paq']||'',canal:row['CANAL']||'',ppto,real,pendiente};
       if(!tesoreria[semanaKey]) tesoreria[semanaKey]={monday,proveedores:{}};
       if(!tesoreria[semanaKey].proveedores[proveedor]) tesoreria[semanaKey].proveedores[proveedor]={marcas:new Set(),costo:0};
       tesoreria[semanaKey].proveedores[proveedor].marcas.add(marca);
@@ -2552,7 +2680,7 @@ function renderPresupuesto(){
           const unidCedi=Math.round(d.pendiente*pct/100);
           const unidDirecta=d.pendiente-unidCedi;
           subtotal+=d.pendiente; subtotalCedi+=unidCedi; subtotalDirecta+=unidDirecta;
-          filasSemana+='<tr><td>'+weekLabel(monday)+'</td><td>'+d.marca+'</td><td>'+prov+'</td><td>'+ref+'</td><td>'+(d.paq||'—')+'</td><td>'+(d.canal||'—')+'</td>'
+          filasSemana+='<tr><td>'+weekLabel(monday)+'</td><td>'+d.marca+'</td><td>'+prov+'</td><td>'+d.ref+'</td><td>'+(d.paq||'—')+'</td><td>'+(d.canal||'—')+'</td>'
             +'<td class="center">'+d.pendiente.toLocaleString()+'</td>'
             +'<td class="center"><input type="number" min="0" max="100" value="'+pct+'" style="width:56px" onchange="actualizarPctCedi(this,\''+provEncoded+'\',\''+sk+'\')"></td>'
             +'<td class="center">'+unidCedi.toLocaleString()+'</td>'
@@ -2622,7 +2750,7 @@ async function cargarPresupuesto(){
   poblarMesesPresupuesto();
   await actualizarPresupuestoDatos();
 }
-function tplReportePresupuesto(tipo,filasHtml,totalStr,desde,hasta){
+function tplReportePresupuesto(tipo,filasHtml,totalStr,periodoTitulo){
   const titulo=tipo==='cedi'?'Presupuesto de ingresos — CEDI':'Presupuesto de facturación — Tesorería';
   const columnas=tipo==='cedi'
     ?'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">REF</th><th style="padding:8px;border:1px solid #333">Paq</th><th style="padding:8px;border:1px solid #333">Canal</th><th style="padding:8px;border:1px solid #333">Unid. pendientes</th>'
@@ -2637,7 +2765,7 @@ function tplReportePresupuesto(tipo,filasHtml,totalStr,desde,hasta){
   <tr><td style="background:#c8433a;height:4px;"></td></tr>
   <tr><td style="padding:32px 36px 28px;">
     <p style="margin:0 0 6px;font-size:12px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">${titulo}</p>
-    <h1 style="margin:0 0 6px;font-family:Georgia,serif;font-size:20px;color:#1a1a2e;">Del ${desde} al ${hasta}</h1>
+    <h1 style="margin:0 0 6px;font-family:Georgia,serif;font-size:20px;color:#1a1a2e;">${periodoTitulo}</h1>
     <p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;">Generado manualmente desde el aplicativo de auditorías.</p>
     <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:12px">
       <thead><tr style="background:#1a1a2e;color:#fff">${columnas}</tr></thead>
@@ -2657,8 +2785,7 @@ async function generarReportePresupuesto(tipo){
   const txtOriginal=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='Enviando...';}
   try{
-    const desde=document.getElementById('presDesde').value||todayStr();
-    const hasta=document.getElementById('presHasta').value||todayStr();
+    const periodo=periodoPresupuestoTexto();
     const {cedi,tesoreria}=calcularPresupuesto();
     if(!S.pctCediOverrides) S.pctCediOverrides={};
     const pctPorDefecto=(()=>{const v=parseFloat(document.getElementById('presPctCedi')?.value);return isNaN(v)?100:Math.max(0,Math.min(100,v));})();
@@ -2674,7 +2801,7 @@ async function generarReportePresupuesto(tipo){
             if(d.pendiente<=0) return;
             const unidCedi=Math.round(d.pendiente*pct/100);
             totalNum+=unidCedi;
-            filasHtml+='<tr><td style="padding:6px 8px;border:1px solid #ddd">'+weekLabel(monday)+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.marca+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+prov+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+ref+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.paq||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.canal||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+unidCedi.toLocaleString()+'</td></tr>';
+            filasHtml+='<tr><td style="padding:6px 8px;border:1px solid #ddd">'+weekLabel(monday)+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.marca+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+prov+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.ref+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.paq||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.canal||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+unidCedi.toLocaleString()+'</td></tr>';
           });
         });
       });
@@ -2691,8 +2818,8 @@ async function generarReportePresupuesto(tipo){
     }
     if(!filasHtml){toast('No hay datos en el rango seleccionado para generar el reporte.');return;}
     const totalStr=tipo==='cedi'?totalNum.toLocaleString()+' unidades':'$'+totalNum.toLocaleString();
-    const html=tplReportePresupuesto(tipo,filasHtml,totalStr,desde,hasta);
-    const asunto=(tipo==='cedi'?'Presupuesto de ingresos CEDI':'Presupuesto de facturación Tesorería')+' — '+desde+' a '+hasta;
+    const html=tplReportePresupuesto(tipo,filasHtml,totalStr,periodo.titulo);
+    const asunto=(tipo==='cedi'?'Presupuesto de ingresos CEDI':'Presupuesto de facturación Tesorería')+' — '+periodo.asunto;
     let destinatarios=[];
     try{
       const rows=await sb('/rest/v1/correos_internos?select=correo&grupo=eq.'+encodeURIComponent(grupo));
