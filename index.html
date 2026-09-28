@@ -719,6 +719,17 @@ tbody td.center{text-align:center}
           <span class="fpl-loaded" id="loadedRifle"></span>
           <span id="lastUpdateRifle" style="font-size:11px;color:var(--ink-soft);margin-top:2px"></span>
         </label>
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">📁 Rifle — Seg 2027</div>
+        <input type="file" id="fileRifle2027" accept="*/*" onchange="procesarArchivo(event.target.files[0],'Rifle2027')" style="display:none">
+        <label for="fileRifle2027" class="file-pick-label" style="margin-bottom:18px"
+          ondragover="event.preventDefault();event.stopPropagation();this.classList.add('dragover')"
+          ondragleave="event.stopPropagation();this.classList.remove('dragover')"
+          ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('dragover');procesarArchivo(event.dataTransfer.files[0],'Rifle2027')">
+          <span class="fpl-icon">📊</span><span class="fpl-title">Seleccionar o arrastrar archivo Rifle 2027</span>
+          <span class="fpl-sub">Seg 2027 producción.xlsx — hoja: Seg 2027</span>
+          <span class="fpl-loaded" id="loadedRifle2027"></span>
+          <span id="lastUpdateRifle2027" style="font-size:11px;color:var(--ink-soft);margin-top:2px"></span>
+        </label>
         <div style="font-weight:700;font-size:13px;margin-bottom:8px">📁 Moft — Seg 2025</div>
         <input type="file" id="fileMoft" accept="*/*" onchange="procesarArchivo(event.target.files[0],'Moft')" style="display:none">
         <label for="fileMoft" class="file-pick-label"
@@ -1038,7 +1049,8 @@ async function sb(path, opts = {}) {
 const S = {
   user: null, role: null, adminId: null,
   data: { Rifle: [], Moft: [] },
-  wbs: { Rifle: null, Moft: null },
+  wbs: { Rifle: null, Rifle2027: null, Moft: null },
+  base: { Rifle: [], Rifle2027: [], Moft: [] },
   auditorias: [], proveedores: [], misAuds: [], auditores: [],
   selMatches: [], matchRows: [],
   selMatches2: [], matchRows2: [],
@@ -1234,8 +1246,29 @@ function showScreen(id){
 function closeModal(id){ document.getElementById(id).style.display='none'; }
 
 /* ══ INIT ════════════════════════════════════════════════ */
+/* Archivos base: 3 espacios en Supabase (archivo_base.id). Rifle 2026 + Rifle 2027 se
+   unifican en S.data.Rifle (el proveedor sigue eligiendo "Rifle"); Moft va aparte. */
+const ARCH_SLOTS={
+  Rifle:     {id:1, marca:'Rifle', hoja:'Seg 2026', etiqueta:'Rifle 2026'},
+  Rifle2027: {id:3, marca:'Rifle', hoja:'Seg 2027', etiqueta:'Rifle 2027'},
+  Moft:      {id:2, marca:'Moft',  hoja:'Mof 2025', etiqueta:'Moft'}
+};
+function recomponerDataMarcas(){
+  S.data.Rifle=[...(S.base.Rifle||[]),...(S.base.Rifle2027||[])];
+  S.data.Moft=S.base.Moft||[];
+}
+function aplicarArchivosBase(rows,conFecha){
+  if(!rows) return;
+  rows.forEach(r=>{
+    const k=Object.keys(ARCH_SLOTS).find(x=>ARCH_SLOTS[x].id===r.id);
+    if(!k||!r.datos) return;
+    S.base[k]=r.datos;
+    if(conFecha) mostrarUltimaActualizacion(k,r.actualizado_en);
+  });
+  recomponerDataMarcas();
+}
 function mostrarUltimaActualizacion(marca,actualizado_en){
-  const id=marca==='Rifle'?'lastUpdateRifle':'lastUpdateMoft';
+  const id='lastUpdate'+marca;
   const el=document.getElementById(id);if(!el)return;
   if (!actualizado_en){el.textContent='';return;}
   try {
@@ -1333,10 +1366,7 @@ function tplResumenAuditor(auditor, fechas, tablaHtml, totalStr){
 async function init(){
   try {
     const rows = await sb('/rest/v1/archivo_base?select=id,datos,actualizado_en');
-    if (rows) rows.forEach(r=>{
-      if (r.id===1&&r.datos){S.data.Rifle=r.datos;mostrarUltimaActualizacion('Rifle',r.actualizado_en);}
-      if (r.id===2&&r.datos){S.data.Moft=r.datos;mostrarUltimaActualizacion('Moft',r.actualizado_en);}
-    });
+    aplicarArchivosBase(rows,true);
   } catch(e){}
   document.getElementById('loadingOverlay').style.display='none';
 }
@@ -1378,10 +1408,7 @@ async function doLogin(){
       cargarSetTallasAuditor();
       if (!S.data.Rifle.length||!S.data.Moft.length){
         const archivos=await sb('/rest/v1/archivo_base?select=id,datos');
-        if (archivos) archivos.forEach(r=>{
-          if (r.id===1&&r.datos) S.data.Rifle=r.datos;
-          if (r.id===2&&r.datos) S.data.Moft=r.datos;
-        });
+        aplicarArchivosBase(archivos,false);
       }
       return;
     }
@@ -1392,10 +1419,7 @@ async function doLogin(){
       document.getElementById('headerButtons').style.display='flex';
       if (!S.data.Rifle.length||!S.data.Moft.length){
         const archivos=await sb('/rest/v1/archivo_base?select=id,datos');
-        if (archivos) archivos.forEach(r=>{
-          if (r.id===1&&r.datos) S.data.Rifle=r.datos;
-          if (r.id===2&&r.datos) S.data.Moft=r.datos;
-        });
+        aplicarArchivosBase(archivos,false);
       }
       resetStep1();goStep(1);showScreen('screenProveedor');
       cargarMisAuds();
@@ -2402,26 +2426,27 @@ function procesarArchivo(file,marca){
     try {
       const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
       S.wbs[marca]=wb;
+      const slot=ARCH_SLOTS[marca];
       const parsed=parsearHoja(wb,marca);
-      if (!parsed.length){toast('No se encontraron datos en la hoja de '+marca);return;}
+      if (!parsed.length){toast('No se encontraron datos en la hoja de '+slot.etiqueta);return;}
       await sb('/rest/v1/archivo_base',{
-        method:'POST',body:{id:marca==='Rifle'?1:2,datos:parsed,actualizado_en:new Date().toISOString()},
+        method:'POST',body:{id:slot.id,datos:parsed,actualizado_en:new Date().toISOString()},
         prefer:'return=representation,resolution=merge-duplicates'
       });
-      S.data[marca]=parsed;
+      S.base[marca]=parsed;recomponerDataMarcas();
       document.getElementById('loaded'+marca).textContent='✓ '+file.name+' — '+parsed.length+' registros';
       mostrarUltimaActualizacion(marca,new Date().toISOString());
-      document.getElementById('archivoOk').textContent=marca+': '+parsed.length+' referencias cargadas.';
+      document.getElementById('archivoOk').textContent=slot.etiqueta+': '+parsed.length+' referencias cargadas.';
       document.getElementById('archivoOk').style.display='block';
       document.getElementById('btnDescActualizado').style.display='inline-flex';
-      toast('✓ '+marca+': '+parsed.length+' registros',true);
+      toast('✓ '+slot.etiqueta+': '+parsed.length+' registros',true);
     } catch(err){toast('Error al procesar '+marca+': '+err.message);}
   };
   reader.readAsArrayBuffer(file);
 }
 
 function parsearHoja(wb,marca){
-  const sheetName=marca==='Moft'?'Mof 2025':'Seg 2026';
+  const sheetName=ARCH_SLOTS[marca].hoja;
   const ws=wb.Sheets[sheetName];
   if (!ws){toast('No se encontró la hoja "'+sheetName+'"');return[];}
   const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd'});
@@ -2433,7 +2458,7 @@ function parsearHoja(wb,marca){
   const rows=[];
   for (let i=headerRow+1;i<raw.length;i++){
     const r=raw[i];if(!r||r.every(c=>!c))continue;
-    const obj={_marca:marca};
+    const obj={_marca:ARCH_SLOTS[marca].marca};
     keep.forEach(k=>{obj[k]=idx[k]!==undefined?(r[idx[k]]||'').toString():'';});
     rows.push(obj);
   }
@@ -2723,10 +2748,7 @@ function renderPresupuesto(){
 async function actualizarPresupuestoDatos(){
   try{
     const rows=await sb('/rest/v1/archivo_base?select=id,datos,actualizado_en');
-    if(rows) rows.forEach(r=>{
-      if(r.id===1&&r.datos){S.data.Rifle=r.datos;mostrarUltimaActualizacion('Rifle',r.actualizado_en);}
-      if(r.id===2&&r.datos){S.data.Moft=r.datos;mostrarUltimaActualizacion('Moft',r.actualizado_en);}
-    });
+    aplicarArchivosBase(rows,true);
   }catch(e){ console.warn('No se pudo refrescar el archivo base.',e); }
   poblarProveedoresPresupuesto();
   renderPresupuesto();
@@ -2911,9 +2933,10 @@ async function ejecutarExport(){
 }
 
 function descargarActualizado(){
-  ['Rifle','Moft'].forEach(marca=>{
-    const wb=S.wbs[marca];if(!wb)return;
-    const sheetName=marca==='Moft'?'Mof 2025':'Seg 2026';
+  Object.keys(ARCH_SLOTS).forEach(slotKey=>{
+    const wb=S.wbs[slotKey];if(!wb)return;
+    const sheetName=ARCH_SLOTS[slotKey].hoja;
+    const marca=ARCH_SLOTS[slotKey].marca;
     const ws=wb.Sheets[sheetName];if(!ws)return;
     const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
     const headers=raw[1]||[];
@@ -2931,7 +2954,7 @@ function descargarActualizado(){
         }
       }
     });
-    XLSX.writeFile(wb,marca+'_Actualizado_'+todayStr()+'.xlsx');
+    XLSX.writeFile(wb,slotKey+'_Actualizado_'+todayStr()+'.xlsx');
   });
   toast('Archivo(s) descargado(s)',true);
 }
