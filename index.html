@@ -2775,7 +2775,7 @@ async function cargarPresupuesto(){
 function tplReportePresupuesto(tipo,filasHtml,totalStr,periodoTitulo){
   const titulo=tipo==='cedi'?'Presupuesto de ingresos — CEDI':'Presupuesto de facturación — Tesorería';
   const columnas=tipo==='cedi'
-    ?'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">REF</th><th style="padding:8px;border:1px solid #333">Paq</th><th style="padding:8px;border:1px solid #333">Canal</th><th style="padding:8px;border:1px solid #333">Unid. pendientes</th><th style="padding:8px;border:1px solid #333">% CEDI</th>'
+    ?'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">REF</th><th style="padding:8px;border:1px solid #333">Paq</th><th style="padding:8px;border:1px solid #333">Canal</th><th style="padding:8px;border:1px solid #333">Unid. CEDI</th>'
     :'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">Costo total</th>';
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f0ede8;font-family:'Segoe UI',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0ede8;padding:32px 16px;"><tr><td align="center">
@@ -2822,12 +2822,14 @@ async function generarReportePresupuesto(tipo){
           Object.keys(refs).sort().forEach(ref=>{
             const d=refs[ref];
             if(d.pendiente<=0) return;
-            totalNum+=d.pendiente; subtotalSemana+=d.pendiente;
-            filasSemana+='<tr><td style="padding:6px 8px;border:1px solid #ddd">'+weekLabel(monday)+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.marca+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+prov+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.ref+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.paq||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.canal||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+d.pendiente.toLocaleString()+'</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+pct+'%</td></tr>';
+            const unidCedi=Math.round(d.pendiente*pct/100);
+            if(unidCedi<=0) return;
+            totalNum+=unidCedi; subtotalSemana+=unidCedi;
+            filasSemana+='<tr><td style="padding:6px 8px;border:1px solid #ddd">'+weekLabel(monday)+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.marca+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+prov+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+d.ref+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.paq||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd">'+(d.canal||'—')+'</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+unidCedi.toLocaleString()+'</td></tr>';
           });
         });
         if(filasSemana){
-          filasHtml+=filasSemana+'<tr style="background:#f5f3ef;font-weight:700"><td colspan="6" style="padding:6px 8px;border:1px solid #ddd;text-align:right">Subtotal semana '+weekLabel(monday)+':</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+subtotalSemana.toLocaleString()+'</td><td style="padding:6px 8px;border:1px solid #ddd"></td></tr>';
+          filasHtml+=filasSemana+'<tr style="background:#f5f3ef;font-weight:700"><td colspan="6" style="padding:6px 8px;border:1px solid #ddd;text-align:right">Subtotal semana '+weekLabel(monday)+':</td><td style="padding:6px 8px;border:1px solid #ddd;text-align:center">'+subtotalSemana.toLocaleString()+'</td></tr>';
         }
       });
     } else {
@@ -2846,7 +2848,7 @@ async function generarReportePresupuesto(tipo){
       });
     }
     if(!filasHtml){toast('No hay datos en el rango seleccionado para generar el reporte.');return;}
-    const totalStr=tipo==='cedi'?totalNum.toLocaleString()+' unidades':'$'+totalNum.toLocaleString();
+    const totalStr=tipo==='cedi'?totalNum.toLocaleString()+' unidades CEDI':'$'+totalNum.toLocaleString();
     const html=tplReportePresupuesto(tipo,filasHtml,totalStr,periodo.titulo);
     const asunto=(tipo==='cedi'?'Presupuesto de ingresos CEDI':'Presupuesto de facturación Tesorería')+' — '+periodo.asunto;
     let destinatarios=[];
