@@ -171,6 +171,11 @@ tbody td.center{text-align:center}
 <!-- PROVEEDOR -->
 <div class="screen" id="screenProveedor">
   <div class="main">
+    <div class="tabs" id="provTabsBar" style="display:none">
+      <button class="tab-btn active" id="provTabBtnAuditorias" onclick="switchProvTab('provTabAuditorias',this)">Auditorías</button>
+      <button class="tab-btn" id="provTabBtnSetTallas" onclick="switchProvTab('provTabSetTallas',this)">Set de Tallas</button>
+    </div>
+    <div class="prov-tab-panel" id="provTabAuditorias">
     <div class="step-bar">
       <div class="step-dot active" id="sd1">1</div><div class="step-line" id="sl1"></div>
       <div class="step-dot" id="sd2">2</div><div class="step-line" id="sl2"></div>
@@ -286,6 +291,57 @@ tbody td.center{text-align:center}
           </table>
         </div>
         <p id="provResumenEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay solicitudes para esta fecha.</p>
+      </div>
+    </div>
+    </div><!-- /provTabAuditorias -->
+    <!-- TAB PROVEEDOR: Set de Tallas (solo consulta, solo sus referencias) -->
+    <div class="prov-tab-panel" id="provTabSetTallas" style="display:none">
+      <div class="card" style="padding:18px 14px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">Set de Tallas</div>
+        <div class="card-sub" id="setTallasProvInfo" style="margin-bottom:12px">Se muestran los registros de los últimos 7 días (máximo 20). Usa los filtros para buscar en el histórico.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;align-items:end">
+          <div class="form-row" style="margin-bottom:0">
+            <label>Referencia</label>
+            <input type="text" id="filtroRefSetTallasProv" placeholder="Buscar REF" style="text-transform:uppercase" oninput="renderSetTallasProv()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Paq</label>
+            <input type="text" id="filtroPaqSetTallasProv" placeholder="Buscar Paq" oninput="renderSetTallasProv()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Marca</label>
+            <select id="filtroMarcaSetTallasProv" onchange="renderSetTallasProv()">
+              <option value="">Todas</option>
+              <option value="Rifle">Rifle</option>
+              <option value="Moft">Moft</option>
+            </select>
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Fecha</label>
+            <input type="date" id="filtroFechaSetTallasProv" onchange="renderSetTallasProv()">
+          </div>
+          <div class="form-row" style="margin-bottom:0">
+            <label>Resultado</label>
+            <select id="filtroResultadoSetTallasProv" onchange="renderSetTallasProv()">
+              <option value="">Todos</option>
+              <option value="Aprobado">Aprobado</option>
+              <option value="Aprobado con corrección">Aprobado con corrección</option>
+              <option value="Rechazado">Rechazado</option>
+            </select>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Fecha</th><th>Marca</th><th>REF</th><th>Pantone</th><th>Paq</th>
+                <th>Resultado</th><th>Auditor</th><th class="center">Reporte</th>
+              </tr>
+            </thead>
+            <tbody id="tblSetTallasProvBody"></tbody>
+          </table>
+        </div>
+        <p id="setTallasProvEmpty" style="display:none;font-size:13px;color:var(--ink-soft);margin-top:8px">No hay registros de set de tallas en los últimos 7 días. Usa los filtros para buscar en el histórico.</p>
       </div>
     </div>
   </div>
@@ -650,7 +706,7 @@ tbody td.center{text-align:center}
           </div>
           <div class="form-row" style="margin-bottom:0">
             <label>Proveedor</label>
-            <input type="text" id="filtroProvSetTallasAdmin" placeholder="Buscar proveedor" oninput="renderSetTallasAdmin()">
+            <select id="filtroProvSetTallasAdmin" onchange="renderSetTallasAdmin()"><option value="">Todos</option></select>
           </div>
           <div class="form-row" style="margin-bottom:0">
             <label>Paq</label>
@@ -1422,6 +1478,8 @@ async function doLogin(){
         aplicarArchivosBase(archivos,false);
       }
       resetStep1();goStep(1);showScreen('screenProveedor');
+      document.getElementById('provTabsBar').style.display='flex';
+      switchProvTab('provTabAuditorias',document.getElementById('provTabBtnAuditorias'));
       cargarMisAuds();
     } else {
       errEl.textContent='Usuario o contraseña incorrectos.';errEl.style.display='block';
@@ -1431,6 +1489,8 @@ async function doLogin(){
 }
 
 function logout(){
+  const _ptb=document.getElementById('provTabsBar'); if(_ptb) _ptb.style.display='none';
+  S.setTallasRegistrosProv=[];
   S.user=null;S.role=null;S.adminId=null;
   document.getElementById('headerButtons').style.display='none';
   document.getElementById('userLabel').textContent='';S.selMatches=[];S.matchRows=[];S.step1=null;
@@ -3124,6 +3184,16 @@ function switchAuditorTab(panelId,btn){
   document.getElementById(panelId).classList.add('active');btn.classList.add('active');
 }
 
+/* Pestanas del rol proveedor: usa la clase propia .prov-tab-panel para que
+   switchTab() del admin (global) no las afecte. */
+function switchProvTab(panelId,btn){
+  document.querySelectorAll('#screenProveedor .prov-tab-panel').forEach(p=>p.style.display='none');
+  document.querySelectorAll('#provTabsBar .tab-btn').forEach(b=>b.classList.remove('active'));
+  const panel=document.getElementById(panelId); if(panel) panel.style.display='block';
+  if(btn) btn.classList.add('active');
+  if(panelId==='provTabSetTallas') cargarSetTallasProv();
+}
+
 /* ══ HORA SOLICITUD ══════════════════════════════════════ */
 function fmtHoraSol(created_at){
   if (!created_at) return '—';
@@ -4263,7 +4333,9 @@ async function cargarSetTallasAuditor(){
 function filtrarSetTallasRows(rows,sufijo,hayFiltroExtra){
   sufijo=sufijo||'Aud';
   const ref=norm(document.getElementById('filtroRefSetTallas'+sufijo)?.value||'');
-  const prov=norm(document.getElementById('filtroProvSetTallas'+sufijo)?.value||'');
+  const provEl=document.getElementById('filtroProvSetTallas'+sufijo);
+  const prov=norm(provEl?.value||'');
+  const provEsLista=!!provEl&&provEl.tagName==='SELECT';
   const paq=norm(document.getElementById('filtroPaqSetTallas'+sufijo)?.value||'');
   const marca=document.getElementById('filtroMarcaSetTallas'+sufijo)?.value||'';
   const fecha=document.getElementById('filtroFechaSetTallas'+sufijo)?.value||'';
@@ -4277,7 +4349,7 @@ function filtrarSetTallasRows(rows,sufijo,hayFiltroExtra){
   }
   return rows.filter(r=>{
     if(ref&&!norm(r.referencia||'').includes(ref)) return false;
-    if(prov&&!norm(r.proveedor||'').includes(prov)) return false;
+    if(prov&&(provEsLista?norm(r.proveedor||'')!==prov:!norm(r.proveedor||'').includes(prov))) return false;
     if(paq&&!norm((r.paq||'').toString()).includes(paq)) return false;
     if(marca&&r.marca!==marca) return false;
     if(fecha&&r.fecha!==fecha) return false;
@@ -4296,6 +4368,77 @@ function renderSetTallasAuditor(){
     tr.innerHTML='<td>'+(i+1)+'</td><td>'+(r.fecha||'')+'</td><td>'+(r.marca||'')+'</td><td>'+(r.proveedor||'')+'</td>'+
       '<td><strong>'+(r.referencia||'')+'</strong></td><td>'+(r.color_pantone||'')+'</td><td>'+(r.paq||'')+'</td>'+
       '<td>'+resBadge+'</td>'+
+      '<td class="center"><button class="btn btn-secondary btn-sm" onclick="abrirReporteSetTallas(\''+r.id+'\')">Ver</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+/* ══ Set de Tallas — vista del proveedor (solo sus referencias, solo consulta) ══
+   1) Se toman los nombres de PROVEEDOR del archivo base que pertenecen a esta
+      cuenta (misma regla perteneceAProveedor de la programacion: DYN no ve
+      TEXTIFULL y viceversa).
+   2) La consulta al servidor se limita a esos nombres (proveedor=in.(...)),
+      asi el navegador del proveedor no descarga registros de otros.
+   3) Se vuelve a validar cada fila con perteneceAProveedor. */
+function nombresProvCuentaActual(){
+  const clave=S.userLogin||S.user; if(!clave) return [];
+  const distintos=new Set();
+  ['Rifle','Moft'].forEach(m=>(S.data[m]||[]).forEach(r=>{ const p=(r['PROVEEDOR']||'').toString().trim(); if(p) distintos.add(p); }));
+  return [...distintos].filter(p=>perteneceAProveedor(p,clave));
+}
+async function cargarSetTallasProv(){
+  const tbody=document.getElementById('tblSetTallasProvBody');
+  try{
+    if(!S.data.Rifle.length&&!S.data.Moft.length){
+      const archivos=await sb('/rest/v1/archivo_base?select=id,datos');
+      aplicarArchivosBase(archivos,false);
+    }
+    const nombres=nombresProvCuentaActual();
+    if(!nombres.length){ S.setTallasRegistrosProv=[]; renderSetTallasProv(); return; }
+    const lista=nombres.map(n=>'"'+n.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"').join(',');
+    const rows=await sb('/rest/v1/set_tallas_registro?select=*&order=creado_en.desc&proveedor=in.('+encodeURIComponent(lista)+')');
+    const clave=S.userLogin||S.user;
+    S.setTallasRegistrosProv=(rows||[]).filter(r=>perteneceAProveedor(r.proveedor||'',clave));
+    renderSetTallasProv();
+  }catch(e){
+    console.warn('Error cargando set de tallas (proveedor).',e);
+    if(tbody) tbody.innerHTML='<tr><td colspan="9" style="color:var(--accent);font-size:13px">No se pudieron cargar los registros. Intenta de nuevo.</td></tr>';
+  }
+}
+function renderSetTallasProv(){
+  const tbody=document.getElementById('tblSetTallasProvBody');if(!tbody)return;
+  const all=S.setTallasRegistrosProv||[];
+  const v=id=>document.getElementById(id)?.value||'';
+  const ref=norm(v('filtroRefSetTallasProv')), paq=norm(v('filtroPaqSetTallasProv'));
+  const marca=v('filtroMarcaSetTallasProv'), fecha=v('filtroFechaSetTallasProv'), resultado=v('filtroResultadoSetTallasProv');
+  const hayFiltros=!!(ref||paq||marca||fecha||resultado);
+  let rows;
+  if(hayFiltros){
+    rows=all.filter(r=>{
+      if(ref&&!norm(r.referencia||'').includes(ref)) return false;
+      if(paq&&!norm((r.paq||'').toString()).includes(paq)) return false;
+      if(marca&&r.marca!==marca) return false;
+      if(fecha&&r.fecha!==fecha) return false;
+      if(resultado&&r.resultado!==resultado) return false;
+      return true;
+    });
+  } else {
+    const d=new Date(); d.setDate(d.getDate()-6);
+    const desde=localDateStr(d);
+    rows=all.filter(r=>(r.fecha||'')>=desde).slice(0,20);
+  }
+  tbody.innerHTML='';
+  const empty=document.getElementById('setTallasProvEmpty');
+  if(empty){
+    empty.textContent=hayFiltros?'No hay registros que coincidan con los filtros.':'No hay registros de set de tallas en los últimos 7 días. Usa los filtros para buscar en el histórico.';
+    empty.style.display=rows.length?'none':'block';
+  }
+  rows.forEach((r,i)=>{
+    const resBadge='<span class="badge '+(r.resultado==='Aprobado'?'badge-green':(r.resultado==='Rechazado'?'badge-red':'badge-blue'))+'">'+(r.resultado||'-')+'</span>';
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+(i+1)+'</td><td>'+(r.fecha||'')+'</td><td>'+(r.marca||'')+'</td>'+
+      '<td><strong>'+(r.referencia||'')+'</strong></td><td>'+(r.color_pantone||'')+'</td><td>'+(r.paq||'')+'</td>'+
+      '<td>'+resBadge+'</td><td>'+(r.auditor||'')+'</td>'+
       '<td class="center"><button class="btn btn-secondary btn-sm" onclick="abrirReporteSetTallas(\''+r.id+'\')">Ver</button></td>';
     tbody.appendChild(tr);
   });
@@ -4324,6 +4467,23 @@ async function cargarSetTallasAdmin(){
 function renderSetTallasAdmin(){
   const tbody=document.getElementById('tblSetTallasAdminBody');if(!tbody)return;
   const auditoresSel=getSelectedSTAdminAuditores();
+  // Lista de proveedores = los que hay con los DEMAS filtros aplicados
+  // (fecha, marca, paq, etc.), sin contar el propio filtro de proveedor.
+  const selProv=document.getElementById('filtroProvSetTallasAdmin');
+  if(selProv){
+    const actual=selProv.value;
+    selProv.value='';
+    // Sin ningun otro filtro activo: lista con todos los proveedores del historico.
+    const otrosFiltros=['filtroRefSetTallasAdmin','filtroPaqSetTallasAdmin','filtroMarcaSetTallasAdmin','filtroFechaSetTallasAdmin','filtroResultadoSetTallasAdmin']
+      .some(id=>(document.getElementById(id)?.value||'').trim()!=='')||auditoresSel.length>0;
+    let base=otrosFiltros?filtrarSetTallasRows(S.setTallasRegistrosAdmin||[],'Admin',auditoresSel.length>0):(S.setTallasRegistrosAdmin||[]);
+    if(auditoresSel.length) base=base.filter(r=>auditoresSel.includes(norm(r.auditor||'')));
+    const nombres=[...new Set(base.map(r=>(r.proveedor||'').toString().trim()).filter(Boolean))];
+    if(actual&&!nombres.includes(actual)) nombres.push(actual);
+    nombres.sort((a,b)=>a.localeCompare(b,'es'));
+    selProv.innerHTML='<option value="">Todos</option>'+nombres.map(n=>'<option value="'+n.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">'+n.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</option>').join('');
+    selProv.value=actual;
+  }
   let rows=filtrarSetTallasRows(S.setTallasRegistrosAdmin||[],'Admin',auditoresSel.length>0);
   if(auditoresSel.length) rows=rows.filter(r=>auditoresSel.includes(norm(r.auditor||'')));
   tbody.innerHTML='';
@@ -4373,7 +4533,7 @@ document.addEventListener('click',()=>{
   document.getElementById('stAdminAuditorDDBtn')?.classList.remove('open');
 });
 function abrirReporteSetTallas(id){
-  const r=(S.setTallasRegistros||[]).concat(S.setTallasRegistrosAdmin||[]).find(x=>String(x.id)===String(id));
+  const r=(S.setTallasRegistros||[]).concat(S.setTallasRegistrosAdmin||[],S.setTallasRegistrosProv||[]).find(x=>String(x.id)===String(id));
   if(!r){toast('No se encontró el registro.');return;}
   document.getElementById('repSTSubtitulo').textContent=(r.marca||'')+' - '+(r.referencia||'')+' - '+(r.color_pantone||'')+' ('+(r.proveedor||'')+')';
   const hallazgosHtml=(r.hallazgos&&r.hallazgos.length)
@@ -4385,7 +4545,7 @@ function abrirReporteSetTallas(id){
     :'<p style="font-size:13px;color:var(--ink-soft)">Sin hallazgos registrados.</p>';
   const fotosModelacionHtml=(r.fotos_modelacion_urls||[]).map(function(u){return '<a href="'+u+'" target="_blank"><img src="'+u+'" style="height:60px;width:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);margin-right:6px"></a>';}).join('');
   const fotosPvpHtml=(r.pvp_foto_urls||[]).map(function(u){return '<a href="'+u+'" target="_blank"><img src="'+u+'" style="height:60px;width:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);margin-right:6px"></a>';}).join('');
-  const correoHtml=(r.correos_enviados||r.correos_fallidos)
+  const correoHtml=(S.role==='proveedor')?'':(r.correos_enviados||r.correos_fallidos)
     ?'<div style="font-size:12px;margin-top:6px">'+
       (r.correos_enviados?'<div style="color:var(--green)">✓ Correo enviado a: '+r.correos_enviados+'</div>':'')+
       (r.correos_fallidos?'<div style="color:var(--accent);margin-top:2px">⚠ Error enviando a: '+r.correos_fallidos+'</div>':'')+
