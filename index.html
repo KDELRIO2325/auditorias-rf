@@ -363,6 +363,7 @@ tbody td.center{text-align:center}
       <button class="tab-btn" onclick="switchTab('tabSetTallasAdmin',this)">Set de Tallas</button>
       <button class="tab-btn" onclick="switchTab('tabArchivo',this)">Archivo base</button>
       <button class="tab-btn" onclick="switchTab('tabPresupuesto',this)">Presupuesto</button>
+      <button class="tab-btn" onclick="switchTab('tabDepurar',this)">Depurar historial</button>
     </div>
 
     <!-- TAB: Solicitudes -->
@@ -799,6 +800,55 @@ tbody td.center{text-align:center}
         </label>
         <div id="archivoOk" class="alert alert-success" style="display:none;margin-top:14px"></div>
         <button class="btn btn-primary" style="display:none;margin-top:10px" id="btnDescActualizado" onclick="descargarActualizado()">⬇ Descargar con estados actualizados</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tabDepurar">
+      <div class="card">
+        <div class="card-title">Depurar historial</div>
+        <div class="card-sub">Descarga en un ZIP (Excel + carpeta de fotos) los registros de un rango de fechas y luego libera espacio en Supabase. El borrado solo se habilita cuando la descarga quedó completa y verificada. <b>El borrado no se puede deshacer.</b> Úselo desde el PC (Chrome o Edge).</div>
+        <div class="form-grid">
+          <div class="form-row"><label>Módulo</label>
+            <select id="depModulo" onchange="depReset()">
+              <option value="auditorias">Auditorías (registro + programación vinculada)</option>
+              <option value="set_tallas">Set de Tallas</option>
+            </select></div>
+          <div class="form-row"><label>Qué borrar</label>
+            <select id="depModo" onchange="depReset()">
+              <option value="fotos">Solo fotos (libera Storage, conserva las filas)</option>
+              <option value="todo">Filas + sus fotos (libera Storage y Database)</option>
+            </select></div>
+          <div class="form-row"><label>Desde (fecha de registro)</label><input type="date" id="depDesde" onchange="depReset()"></div>
+          <div class="form-row"><label>Hasta (fecha de registro)</label><input type="date" id="depHasta" onchange="depReset()"></div>
+        </div>
+        <div class="hint">Máximo 200 registros por corrida (recomendado: un mes a la vez). En Auditorías solo se toman auditorías que ya tienen registro; las programaciones sin registro nunca se borran.</div>
+        <button class="btn btn-secondary" style="margin-top:14px" onclick="depPreparar()">1. Revisar qué se va a depurar</button>
+        <div id="depResumen" style="margin-top:14px"></div>
+        <div id="depPaso2" style="display:none;margin-top:6px">
+          <button class="btn btn-primary" id="depBtnZip" onclick="depDescargarZip()">2. Descargar ZIP (Excel + fotos)</button>
+          <div id="depProgreso" class="hint" style="margin-top:8px;white-space:pre-line"></div>
+        </div>
+        <div id="depPaso3" style="display:none;margin-top:18px;border-top:1.5px solid var(--border);padding-top:14px">
+          <div style="font-weight:700;margin-bottom:10px;color:var(--accent)">3. Borrar de Supabase</div>
+          <div style="font-size:13px;margin-bottom:12px;display:flex;gap:8px;align-items:flex-start">
+            <input type="checkbox" id="depChkGuardado" style="margin-top:3px">
+            <span>Confirmo que guardé el ZIP en mi carpeta y que abre correctamente.</span>
+          </div>
+          <div class="form-grid">
+            <div class="form-row"><label>Usuario administrador</label><input type="text" id="depUsuario" autocomplete="username"></div>
+            <div class="form-row"><label>Contraseña</label><input type="password" id="depPass" autocomplete="current-password"></div>
+            <div class="form-row"><label>Escriba BORRAR para confirmar</label><input type="text" id="depConfirm" autocomplete="off"></div>
+          </div>
+          <button class="btn btn-primary" id="depBtnBorrar" onclick="depEjecutarBorrado()">Borrar definitivamente</button>
+        </div>
+        <div id="depResultado" style="margin-top:14px"></div>
+      </div>
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:10px">
+          <div class="card-title" style="margin-bottom:0">Bitácora de depuraciones</div>
+          <button class="refresh-btn" onclick="depCargarBitacora()">🔄 Actualizar</button>
+        </div>
+        <div id="depBitacora"></div>
       </div>
     </div>
 
@@ -1445,7 +1495,7 @@ async function doLogin(){
     const resLogin=await sb('/rest/v1/rpc/rpc_login',{method:'POST',body:{p_usuario:u,p_pass:p}});
     const match=resLogin&&resLogin[0];
     if (match&&match.role==='admin'){
-      S.user=match.nombre;S.role='admin';S.adminId=match.id;
+      S.user=match.nombre;S.role='admin';S.adminId=match.id;S.adminUsuario=match.usuario;
       document.getElementById('userLabel').textContent='Admin';
       document.getElementById('headerButtons').style.display='flex';
       btn.disabled=false;btn.textContent='Entrar';
@@ -3174,6 +3224,7 @@ function switchTab(panelId,btn){
   if (panelId==='tabCorreos') cargarGruposCorreo();
   if (panelId==='tabSetTallasAdmin') cargarSetTallasAdmin();
   if (panelId==='tabPresupuesto') cargarPresupuesto();
+  if (panelId==='tabDepurar') initDepurar();
 }
 /* Pestanas del rol auditor (screenAuditor): escopadas a ese screen para no
    interferir con las pestanas del admin, que switchTab() controla de forma
@@ -4970,6 +5021,266 @@ document.addEventListener('keydown',e=>{
 
 init();
 
+
+/* ══════════════════════════════════════════════════════════
+   DEPURAR HISTORIAL (22 oct 2026) — solo admin
+   1) Revisar rango  2) Descargar ZIP (Excel + fotos) verificado
+   3) Borrar vía el Worker "depurar-auditorias" (usa la llave de
+   servicio de Supabase, que NUNCA va en este HTML; el Worker vuelve
+   a validar usuario/contraseña admin con rpc_login y recalcula los
+   conteos antes de borrar).
+   Modos: 'fotos' = solo Storage | 'todo' = filas + sus fotos.
+   Regla Auditorías: solo se toman registros (auditoria_registro);
+   una programación (auditorias) se borra solo si TODOS los registros
+   que la referencian están dentro del lote. Programaciones sin
+   registro nunca se tocan.
+   ══════════════════════════════════════════════════════════ */
+const DEPURAR_WORKER_URL='https://depurar.auditorias-rifle-moft.workers.dev';
+const DEP_MARCA_URL='/storage/v1/object/public/'+STORAGE_BUCKET+'/';
+const DEP_MAX_FILAS=200;
+let DEP=null;
+
+function depEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function depRutaDeUrl(u){
+  if(typeof u!=='string')return null;
+  const i=u.indexOf(DEP_MARCA_URL);if(i<0)return null;
+  let r=u.slice(i+DEP_MARCA_URL.length).split('?')[0].split('#')[0];
+  try{r=decodeURIComponent(r);}catch(e){}
+  return r||null;
+}
+/* Recorre TODA la fila (incluye jsonb anidados como hallazgos[].fotos[])
+   y devuelve cada URL de foto del bucket con el campo de donde salió. */
+function depExtraerFotos(fila){
+  const out=[];
+  (function walk(v,campo){
+    if(v==null)return;
+    if(typeof v==='string'){const r=depRutaDeUrl(v);if(r)out.push({campo:campo||'foto',url:v,ruta:r});return;}
+    if(Array.isArray(v)){v.forEach((x,i)=>walk(x,campo+'_'+(i+1)));return;}
+    if(typeof v==='object')Object.keys(v).forEach(k=>walk(v[k],campo?campo+'_'+k:k));
+  })(fila,'');
+  return out;
+}
+function depFinExclusivo(hasta){const d=new Date(hasta+'T12:00:00');d.setDate(d.getDate()+1);return localDateStr(d);}
+async function depGetIn(tabla,campo,valores){
+  const out=[];
+  for(let i=0;i<valores.length;i+=100){
+    const lote=valores.slice(i,i+100).map(v=>encodeURIComponent(String(v))).join(',');
+    const r=await sb('/rest/v1/'+tabla+'?select=*&'+campo+'=in.('+lote+')');
+    out.push(...(r||[]));
+  }
+  return out;
+}
+function depReset(){
+  DEP=null;
+  ['depResumen','depProgreso','depResultado'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  const p2=document.getElementById('depPaso2'),p3=document.getElementById('depPaso3');
+  if(p2)p2.style.display='none';if(p3)p3.style.display='none';
+  const b=document.getElementById('depBtnZip');if(b)b.disabled=false;
+}
+function initDepurar(){
+  const d=document.getElementById('depDesde'),h=document.getElementById('depHasta');
+  if(!d.value){
+    const now=new Date();
+    d.value=localDateStr(new Date(now.getFullYear(),now.getMonth()-2,1));
+    h.value=localDateStr(new Date(now.getFullYear(),now.getMonth()-1,0));
+  }
+  const u=document.getElementById('depUsuario');
+  if(u&&!u.value&&S.adminUsuario)u.value=S.adminUsuario;
+  depCargarBitacora();
+}
+
+async function depPreparar(){
+  depReset();
+  const modulo=document.getElementById('depModulo').value;
+  const modo=document.getElementById('depModo').value;
+  const desde=document.getElementById('depDesde').value;
+  const hasta=document.getElementById('depHasta').value;
+  const res=document.getElementById('depResumen');
+  if(!desde||!hasta){res.innerHTML='<div class="alert alert-error">Seleccione las fechas Desde y Hasta.</div>';return;}
+  if(desde>hasta){res.innerHTML='<div class="alert alert-error">La fecha Desde no puede ser mayor que Hasta.</div>';return;}
+  if(hasta>=todayStr()){res.innerHTML='<div class="alert alert-error">El rango debe terminar antes de hoy (no se depuran registros del día).</div>';return;}
+  res.innerHTML='<div class="hint">Consultando Supabase...</div>';
+  try{
+    const tabla=modulo==='auditorias'?'auditoria_registro':'set_tallas_registro';
+    const filas=await sb('/rest/v1/'+tabla+'?select=*&creado_en=gte.'+desde+'T00:00:00-05:00&creado_en=lt.'+depFinExclusivo(hasta)+'T00:00:00-05:00&order=creado_en.asc')||[];
+    if(!filas.length){res.innerHTML='<div class="alert alert-info">No hay registros en ese rango.</div>';return;}
+    if(filas.length>DEP_MAX_FILAS){res.innerHTML='<div class="alert alert-error">El rango tiene '+filas.length+' registros. El máximo por corrida es '+DEP_MAX_FILAS+'. Reduzca el rango de fechas.</div>';return;}
+    let auds=[];const audsCompartidas=new Set();
+    if(modulo==='auditorias'){
+      const ids=new Set(filas.map(f=>String(f.id)));
+      const todos=await sb('/rest/v1/auditoria_registro?select=id,auditoria_ids')||[];
+      const externos=new Set();
+      todos.forEach(r=>{if(!ids.has(String(r.id)))(r.auditoria_ids||[]).forEach(a=>externos.add(String(a)));});
+      const cand=new Set();
+      filas.forEach(r=>(r.auditoria_ids||[]).forEach(a=>{const s=String(a);if(externos.has(s))audsCompartidas.add(s);else cand.add(s);}));
+      auds=cand.size?await depGetIn('auditorias','id',[...cand]):[];
+    }
+    const vistos=new Set(),fotos=[];
+    const agregar=(lista,tablaF)=>lista.forEach(r=>depExtraerFotos(r).forEach(f=>{
+      if(vistos.has(f.ruta))return;vistos.add(f.ruta);
+      fotos.push(Object.assign(f,{tabla:tablaF,id:r.id,ref:r.referencia||r.ref||''}));
+    }));
+    agregar(filas,tabla);agregar(auds,'auditorias');
+    DEP={modulo,modo,desde,hasta,tabla,filas,auds,fotos,zipOk:false};
+    const nomMod=modulo==='auditorias'?'Auditorías':'Set de Tallas';
+    let html='<div class="alert alert-info"><b>'+nomMod+' — '+desde+' a '+hasta+'</b><br>'
+      +'Registros en el rango: <b>'+filas.length+'</b><br>';
+    if(modulo==='auditorias')html+='Programaciones vinculadas: <b>'+auds.length+'</b>'+(audsCompartidas.size?' ('+audsCompartidas.size+' compartida(s) con registros fuera del rango: se conservan)':'')+'<br>';
+    html+='Fotos: <b>'+fotos.length+'</b><br><br>';
+    if(modo==='fotos')html+='Se borrarán <b>solo las '+fotos.length+' fotos</b> de Storage. Las filas se conservan, pero sus fotos dejarán de verse en la app y en los correos ya enviados.';
+    else html+='Se borrarán <b>'+filas.length+' registro(s)</b>'+(modulo==='auditorias'?', <b>'+auds.length+' programación(es)</b>':'')+' y <b>'+fotos.length+' foto(s)</b>. Dejarán de verse en la app y en los correos ya enviados.';
+    html+='</div>';
+    if(modo==='fotos'&&!fotos.length){res.innerHTML=html+'<div class="alert alert-error">No hay fotos para depurar en ese rango.</div>';DEP=null;return;}
+    res.innerHTML=html;
+    document.getElementById('depPaso2').style.display='block';
+  }catch(e){res.innerHTML='<div class="alert alert-error">Error consultando Supabase: '+depEsc(e.message||e)+'</div>';}
+}
+
+function depCargarScript(src){
+  return new Promise((ok,ko)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>ko(new Error('No se pudo cargar '+src));document.head.appendChild(s);});
+}
+function depPlano(r){
+  const o={};
+  Object.keys(r).forEach(k=>{let v=r[k];if(v!==null&&typeof v==='object')v=JSON.stringify(v);if(typeof v==='string'&&v.length>32000)v=v.slice(0,32000)+'…';o[k]=v;});
+  return o;
+}
+
+async function depDescargarZip(){
+  if(!DEP)return;
+  const btn=document.getElementById('depBtnZip'),prog=document.getElementById('depProgreso');
+  btn.disabled=true;prog.textContent='';
+  const nomMod=DEP.modulo==='auditorias'?'Auditorias':'SetTallas';
+  const base='Depuracion_'+nomMod+'_'+DEP.desde+'_a_'+DEP.hasta;
+  /* En Chrome/Edge de PC se pide la ubicación ANTES de descargar
+     (el navegador exige que sea justo después del clic). */
+  let handle=null;
+  if(window.showSaveFilePicker){
+    try{handle=await window.showSaveFilePicker({suggestedName:base+'.zip',types:[{description:'Archivo ZIP',accept:{'application/zip':['.zip']}}]});}
+    catch(e){if(e&&e.name==='AbortError'){btn.disabled=false;return;}handle=null;}
+  }
+  try{
+    if(!window.JSZip){prog.textContent='Cargando librería ZIP...';await depCargarScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');}
+    const zip=new JSZip();const carpeta=zip.folder(base);const fotosDir=carpeta.folder('fotos');
+    let idx=0,ok=0,noEnc=0,bytes=0;const fallas=[];
+    const total=DEP.fotos.length;
+    async function trabajar(){
+      while(idx<total){
+        const f=DEP.fotos[idx++];
+        let ext=(f.ruta.split('.').pop()||'').toLowerCase();if(!/^[a-z0-9]{2,5}$/.test(ext))ext='jpg';
+        f.archivo=(f.tabla==='auditorias'?'prog':'reg')+f.id+'_'+String(f.campo).replace(/[^A-Za-z0-9_-]/g,'')+'.'+ext;
+        try{
+          let r=null,err=null;
+          for(let intento=0;intento<3;intento++){
+            try{r=await fetch(f.url,{cache:'no-store'});if(r.ok||r.status===404||r.status===400)break;err=new Error('HTTP '+r.status);}catch(e){err=e;r=null;}
+            await new Promise(z=>setTimeout(z,800*(intento+1)));
+          }
+          if(r&&r.ok){
+            const b=await r.blob();if(!b.size)throw new Error('archivo vacío');
+            fotosDir.file(f.archivo,b,{compression:'STORE'});f.estado='En ZIP';ok++;bytes+=b.size;
+          }else if(r&&(r.status===404||r.status===400)){
+            const t=await r.text().catch(()=>'');
+            if(r.status===404||/not.?found/i.test(t)){f.estado='No existía en Storage';noEnc++;}
+            else throw new Error('HTTP '+r.status);
+          }else throw err||new Error('sin respuesta');
+        }catch(e){f.estado='ERROR';fallas.push(f.archivo+': '+(e.message||e));}
+        prog.textContent='Descargando fotos '+(ok+noEnc+fallas.length)+' / '+total+' ('+(bytes/1048576).toFixed(1)+' MB)';
+      }
+    }
+    await Promise.all(Array.from({length:6},trabajar));
+    if(fallas.length)throw new Error(fallas.length+' foto(s) no se pudieron descargar. No se habilita el borrado; intente de nuevo.\n'+fallas.slice(0,5).join('\n'));
+
+    prog.textContent='Generando Excel...';
+    const wb=XLSX.utils.book_new();
+    const porFila={};DEP.fotos.forEach(f=>{const k=f.tabla+'|'+f.id;(porFila[k]=porFila[k]||[]).push(f.archivo);});
+    const hojaReg=DEP.filas.map(r=>Object.assign(depPlano(r),{fotos_en_zip:(porFila[DEP.tabla+'|'+r.id]||[]).join(', ')}));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(hojaReg),DEP.modulo==='auditorias'?'Registros':'Set de Tallas');
+    if(DEP.modulo==='auditorias'){
+      const hp=DEP.auds.length?DEP.auds.map(depPlano):[{info:'Sin programaciones vinculadas exclusivas a este rango'}];
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(hp),'Programacion');
+    }
+    const ff=DEP.fotos.map(f=>({tabla:f.tabla,id_registro:f.id,referencia:f.ref,campo:f.campo,archivo:f.archivo,estado:f.estado,url_original:f.url}));
+    const wsF=XLSX.utils.json_to_sheet(ff.length?ff:[{info:'Sin fotos'}]);
+    ff.forEach((f,i)=>{if(f.estado!=='En ZIP')return;const c=XLSX.utils.encode_cell({r:i+1,c:4});if(wsF[c])wsF[c].l={Target:'fotos/'+f.archivo,Tooltip:'Abrir foto'};});
+    XLSX.utils.book_append_sheet(wb,wsF,'Fotos');
+    const resumen=[
+      {dato:'Módulo',valor:DEP.modulo==='auditorias'?'Auditorías':'Set de Tallas'},
+      {dato:'Modo',valor:DEP.modo==='fotos'?'Solo fotos':'Filas + fotos'},
+      {dato:'Desde',valor:DEP.desde},{dato:'Hasta',valor:DEP.hasta},
+      {dato:'Generado',valor:new Date().toLocaleString('es-CO')},
+      {dato:'Registros',valor:DEP.filas.length},
+      {dato:'Programaciones vinculadas',valor:DEP.auds.length},
+      {dato:'Fotos en ZIP',valor:ok},
+      {dato:'Fotos que ya no existían en Storage',valor:noEnc},
+      {dato:'Nota',valor:'Abra el Excel desde la carpeta descomprimida para que funcionen los enlaces de la hoja Fotos.'}
+    ];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen),'Resumen');
+    carpeta.file(base+'.xlsx',XLSX.write(wb,{bookType:'xlsx',type:'array'}));
+
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}},m=>{prog.textContent='Armando ZIP '+Math.round(m.percent)+'%';});
+    /* Verificación: el ZIP se vuelve a abrir y se cuentan sus archivos */
+    prog.textContent='Verificando ZIP...';
+    const z2=await JSZip.loadAsync(blob);
+    const nFotos=Object.keys(z2.files).filter(n=>n.startsWith(base+'/fotos/')&&!z2.files[n].dir).length;
+    if(nFotos!==ok||!z2.files[base+'/'+base+'.xlsx'])throw new Error('La verificación del ZIP falló ('+nFotos+' fotos en el ZIP, se esperaban '+ok+'). No se habilita el borrado.');
+
+    if(handle){const w=await handle.createWritable();await w.write(blob);await w.close();}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=base+'.zip';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000);}
+
+    DEP.zipOk=true;
+    DEP.esperado={filas:DEP.filas.length,auditorias:DEP.auds.length,fotos:DEP.fotos.length};
+    prog.innerHTML='<div class="alert alert-success" style="margin-bottom:0">ZIP verificado y guardado: <b>'+depEsc(base)+'.zip</b> ('+(blob.size/1048576).toFixed(1)+' MB) — '+DEP.filas.length+' registro(s), '+ok+' foto(s)'+(noEnc?', '+noEnc+' ya no existían':'')+'.'+(handle?'':'<br>Quedó en Descargas: muévalo a su carpeta de OneDrive antes de borrar.')+'</div>';
+    document.getElementById('depPaso3').style.display='block';
+    const u=document.getElementById('depUsuario');if(u&&!u.value&&S.adminUsuario)u.value=S.adminUsuario;
+  }catch(e){
+    prog.innerHTML='<div class="alert alert-error" style="margin-bottom:0;white-space:pre-line">'+depEsc(e.message||e)+'</div>';
+    btn.disabled=false;
+  }
+}
+
+async function depEjecutarBorrado(){
+  const out=document.getElementById('depResultado');
+  if(!DEP||!DEP.zipOk){toast('Primero descargue y verifique el ZIP.');return;}
+  if(!document.getElementById('depChkGuardado').checked){toast('Confirme que guardó el ZIP.');return;}
+  if(document.getElementById('depConfirm').value.trim().toUpperCase()!=='BORRAR'){toast('Escriba BORRAR para confirmar.');return;}
+  const usuario=document.getElementById('depUsuario').value.trim(),pass=document.getElementById('depPass').value;
+  if(!usuario||!pass){toast('Ingrese usuario y contraseña de administrador.');return;}
+  const btn=document.getElementById('depBtnBorrar');btn.disabled=true;btn.textContent='Borrando...';
+  out.innerHTML='';
+  try{
+    let r;
+    try{
+      r=await fetch(DEPURAR_WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        usuario,pass,modulo:DEP.modulo,modo:DEP.modo,desde:DEP.desde,hasta:DEP.hasta,
+        ids:DEP.filas.map(f=>f.id),esperado:DEP.esperado})});
+    }catch(e){throw new Error('No se pudo conectar con el Worker de depuración ('+DEPURAR_WORKER_URL+'). Verifique que esté creado en Cloudflare.');}
+    const data=await r.json().catch(()=>({error:'Respuesta inválida del servidor (HTTP '+r.status+')'}));
+    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+    out.innerHTML='<div class="alert alert-success">Depuración completada. Fotos borradas: <b>'+data.fotos_borradas+'</b>'
+      +(data.modo==='todo'?' · Registros borrados: <b>'+data.filas_borradas+'</b>'+(DEP.modulo==='auditorias'?' · Programaciones borradas: <b>'+data.auditorias_borradas+'</b>':''):'')
+      +(data.fotos_no_encontradas?' · '+data.fotos_no_encontradas+' foto(s) ya no existían':'')+'.</div>';
+    const modo=DEP.modo;
+    document.getElementById('depPass').value='';document.getElementById('depConfirm').value='';document.getElementById('depChkGuardado').checked=false;
+    DEP=null;document.getElementById('depPaso2').style.display='none';document.getElementById('depPaso3').style.display='none';
+    document.getElementById('depResumen').innerHTML='';document.getElementById('depProgreso').innerHTML='';
+    depCargarBitacora();
+    if(modo==='todo'){try{await cargarDatosAdmin();}catch(e){}}
+  }catch(e){
+    out.innerHTML='<div class="alert alert-error" style="white-space:pre-line">No se borró nada o el borrado quedó incompleto: '+depEsc(e.message||e)+'<br>Revise la bitácora y vuelva a empezar desde el paso 1.</div>';
+    depCargarBitacora();
+  }
+  btn.disabled=false;btn.textContent='Borrar definitivamente';
+}
+
+async function depCargarBitacora(){
+  const el=document.getElementById('depBitacora');if(!el)return;
+  try{
+    const rows=await sb('/rest/v1/depuracion_log?select=id,creado_en,admin,modulo,modo,desde,hasta,estado,filas_borradas,auditorias_borradas,fotos_solicitadas,fotos_borradas,error&order=creado_en.desc&limit=30')||[];
+    if(!rows.length){el.innerHTML='<div class="hint">Aún no hay depuraciones registradas.</div>';return;}
+    el.innerHTML='<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Admin</th><th>Módulo</th><th>Modo</th><th>Rango</th><th class="center">Registros</th><th class="center">Programaciones</th><th class="center">Fotos</th><th>Estado</th></tr></thead><tbody>'
+      +rows.map(r=>'<tr><td>'+depEsc(new Date(r.creado_en).toLocaleString('es-CO'))+'</td><td>'+depEsc(r.admin)+'</td><td>'+(r.modulo==='auditorias'?'Auditorías':'Set de Tallas')+'</td><td>'+(r.modo==='fotos'?'Solo fotos':'Filas + fotos')+'</td><td>'+depEsc(r.desde)+' a '+depEsc(r.hasta)+'</td><td class="center">'+(r.filas_borradas||0)+'</td><td class="center">'+(r.auditorias_borradas||0)+'</td><td class="center">'+(r.fotos_borradas||0)+' / '+(r.fotos_solicitadas||0)+'</td><td>'+(r.estado==='completado'?'<span class="badge badge-green">Completado</span>':'<span class="badge badge-red" title="'+depEsc(r.error||'')+'">'+depEsc(r.estado||'')+'</span>')+'</td></tr>').join('')
+      +'</tbody></table></div>';
+  }catch(e){el.innerHTML='<div class="alert alert-error">No se encontró la tabla de bitácora. Corra primero el archivo <b>depuracion_historial.sql</b> en Supabase.</div>';}
+}
 </script>
 
 <!-- Modal Export Excel -->
