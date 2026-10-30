@@ -5118,7 +5118,7 @@ async function depPreparar(){
     const vistos=new Set(),fotos=[];
     const agregar=(lista,tablaF)=>lista.forEach(r=>depExtraerFotos(r).forEach(f=>{
       if(vistos.has(f.ruta))return;vistos.add(f.ruta);
-      fotos.push(Object.assign(f,{tabla:tablaF,id:r.id,ref:r.referencia||r.ref||''}));
+      fotos.push(Object.assign(f,{tabla:tablaF,id:r.id,ref:r.referencia||r.ref||'',paq:(r.paquete||r.paq||'').toString()}));
     }));
     agregar(filas,tabla);agregar(auds,'auditorias');
     DEP={modulo,modo,desde,hasta,tabla,filas,auds,fotos,zipOk:false};
@@ -5167,7 +5167,9 @@ async function depDescargarZip(){
       while(idx<total){
         const f=DEP.fotos[idx++];
         let ext=(f.ruta.split('.').pop()||'').toLowerCase();if(!/^[a-z0-9]{2,5}$/.test(ext))ext='jpg';
-        f.archivo=(f.tabla==='auditorias'?'prog':'reg')+f.id+'_'+String(f.campo).replace(/[^A-Za-z0-9_-]/g,'')+'.'+ext;
+        /* Nombre: REF_paqPAQ_regID_campo.ext (28 oct: Kathe pidió ref y paq en el nombre para poder buscarlas) */
+        const limpia=x=>String(x||'').trim().replace(/[\\\/:*?"<>|\s]+/g,'-').replace(/[^A-Za-z0-9._-]/g,'').slice(0,40);
+        f.archivo=(limpia(f.ref)||'SINREF')+'_paq'+(limpia(f.paq).replace(/^paq[-_.]*/i,'')||'NA')+'_'+(f.tabla==='auditorias'?'prog':'reg')+f.id+'_'+String(f.campo).replace(/[^A-Za-z0-9_-]/g,'')+'.'+ext;
         try{
           let r=null,err=null;
           for(let intento=0;intento<3;intento++){
@@ -5198,9 +5200,9 @@ async function depDescargarZip(){
       const hp=DEP.auds.length?DEP.auds.map(depPlano):[{info:'Sin programaciones vinculadas exclusivas a este rango'}];
       XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(hp),'Programacion');
     }
-    const ff=DEP.fotos.map(f=>({tabla:f.tabla,id_registro:f.id,referencia:f.ref,campo:f.campo,archivo:f.archivo,estado:f.estado,url_original:f.url}));
+    const ff=DEP.fotos.map(f=>({tabla:f.tabla,id_registro:f.id,referencia:f.ref,paq:f.paq,campo:f.campo,archivo:f.archivo,estado:f.estado,url_original:f.url}));
     const wsF=XLSX.utils.json_to_sheet(ff.length?ff:[{info:'Sin fotos'}]);
-    ff.forEach((f,i)=>{if(f.estado!=='En ZIP')return;const c=XLSX.utils.encode_cell({r:i+1,c:4});if(wsF[c])wsF[c].l={Target:'fotos/'+f.archivo,Tooltip:'Abrir foto'};});
+    ff.forEach((f,i)=>{if(f.estado!=='En ZIP')return;const c=XLSX.utils.encode_cell({r:i+1,c:5});if(wsF[c])wsF[c].l={Target:'fotos/'+f.archivo,Tooltip:'Abrir foto'};});
     XLSX.utils.book_append_sheet(wb,wsF,'Fotos');
     const resumen=[
       {dato:'Módulo',valor:DEP.modulo==='auditorias'?'Auditorías':'Set de Tallas'},
