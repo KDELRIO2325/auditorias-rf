@@ -2883,7 +2883,7 @@ async function cargarPresupuesto(){
   await actualizarPresupuestoDatos();
 }
 function tplReportePresupuesto(tipo,filasHtml,totalStr,periodoTitulo){
-  const titulo=tipo==='cedi'?'Presupuesto de ingresos — CEDI':'Presupuesto de facturación — Tesorería';
+  const titulo=tipo==='cedi'?'Presupuesto de ingresos — CEDI':'Presupuesto de facturación';
   const columnas=tipo==='cedi'
     ?'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">REF</th><th style="padding:8px;border:1px solid #333">Paq</th><th style="padding:8px;border:1px solid #333">Canal</th><th style="padding:8px;border:1px solid #333">Unid. CEDI</th>'
     :'<th style="padding:8px;border:1px solid #333">Semana</th><th style="padding:8px;border:1px solid #333">Marca</th><th style="padding:8px;border:1px solid #333">Proveedor</th><th style="padding:8px;border:1px solid #333">Costo total</th>';
@@ -2898,7 +2898,7 @@ function tplReportePresupuesto(tipo,filasHtml,totalStr,periodoTitulo){
   <tr><td style="padding:32px 36px 28px;">
     <p style="margin:0 0 6px;font-size:12px;color:#9a9a9a;text-transform:uppercase;letter-spacing:.8px;">${titulo}</p>
     <h1 style="margin:0 0 6px;font-family:Georgia,serif;font-size:20px;color:#1a1a2e;">${periodoTitulo}</h1>
-    <p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;">Generado manualmente desde el aplicativo de auditorías.</p>
+    ${tipo==='cedi'?'<p style="margin:0 0 20px;font-size:13px;color:#4a4a6a;">Generado manualmente desde el aplicativo de auditorías.</p>':'<div style="height:14px"></div>'}
     <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:12px">
       <thead><tr style="background:#1a1a2e;color:#fff">${columnas}</tr></thead>
       <tbody>${filasHtml}</tbody>
@@ -2960,7 +2960,7 @@ async function generarReportePresupuesto(tipo){
     if(!filasHtml){toast('No hay datos en el rango seleccionado para generar el reporte.');return;}
     const totalStr=tipo==='cedi'?totalNum.toLocaleString()+' unidades CEDI':'$'+totalNum.toLocaleString();
     const html=tplReportePresupuesto(tipo,filasHtml,totalStr,periodo.titulo);
-    const asunto=(tipo==='cedi'?'Presupuesto de ingresos CEDI':'Presupuesto de facturación Tesorería')+' — '+periodo.asunto;
+    const asunto=(tipo==='cedi'?'Presupuesto de ingresos CEDI':'Presupuesto de facturación')+' — '+periodo.asunto;
     let destinatarios=[];
     try{
       const rows=await sb('/rest/v1/correos_internos?select=correo&grupo=eq.'+encodeURIComponent(grupo));
