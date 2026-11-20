@@ -1134,7 +1134,24 @@ const ADMIN_UN = 'admin', ADMIN_PW = 'admin2026';
 const EMAIL_WORKER_URL = 'https://email-proxy.auditorias-rifle-moft.workers.dev';
 
 /* ══ SUPABASE ════════════════════════════════════════════ */
+/* 20 nov 2026: Supabase devuelve max 1000 filas por consulta. Con >1000
+   auditorias, la vista del auditor (orden fecha asc) perdia las mas recientes.
+   Toda lectura GET sin 'limit=' se pagina automaticamente de 1000 en 1000. */
+const SB_PAGE = 1000;
 async function sb(path, opts = {}) {
+  const method = (opts.method || 'GET').toUpperCase();
+  if (method === 'GET' && !opts._page && path.indexOf('select=') >= 0 && !/[?&]limit=/.test(path)) {
+    let all = [], offset = 0;
+    while (true) {
+      const sep = path.indexOf('?') >= 0 ? '&' : '?';
+      const chunk = await sb(path + sep + 'limit=' + SB_PAGE + '&offset=' + offset, Object.assign({}, opts, { _page: true }));
+      if (!Array.isArray(chunk)) return chunk;
+      all = all.concat(chunk);
+      if (chunk.length < SB_PAGE) break;
+      offset += SB_PAGE;
+    }
+    return all;
+  }
   const headers = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
   if (opts.prefer) headers['Prefer'] = opts.prefer;
   const res = await fetch(SB_URL + path, {
@@ -2108,8 +2125,8 @@ function renderAdminTablas(desactivarPendientes){
   // Tabla auditorias
   const fauds=getSelectedAuditores();
   let filtered=activas.filter(a=>{
-    if(S._filtroPendientes) return !a.auditor; // solo sin auditor, sin restricción de fecha
-    if (fref||fpaqAdmin){
+    if(S._filtroPendientes){ if(a.auditor) return false; } // solo sin auditor, sin restricción de fecha (luego aplica marca/proveedor/auditor)
+    else if (fref||fpaqAdmin){
       // Si hay filtro de REF y/o PAQ, busca en todos los registros sin importar fecha
       if (fref&&!norm(a.ref||'').includes(fref)) return false;
       if (fpaqAdmin&&!norm((a.paq||'').toString()).includes(fpaqAdmin)) return false;
