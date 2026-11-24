@@ -1518,6 +1518,7 @@ async function doLogin(){
       btn.disabled=false;btn.textContent='Entrar';
       showScreen('screenAdmin');
       await cargarDatosAdmin();
+      cargarDefectos(); // catalogo necesario para que el admin registre auditorias / set de tallas
       return;
     }
     if (match&&match.role==='auditor'){
@@ -2177,7 +2178,8 @@ function renderAdminTablas(desactivarPendientes){
         S.auditores.map(au=>'<option '+(a.auditor===au.nombre?'selected':'')+'>'+au.nombre+'</option>').join('')+
       '</select></td>'+
       '<td class="center" style="white-space:nowrap">'+
-        (a.resultado_auditoria?'<button class="btn btn-secondary btn-sm" onclick="abrirReporte(\''+a.id+'\')" title="Ver reporte" style="margin-right:4px">📄</button>':'')+
+        (a.resultado_auditoria?'<button class="btn btn-secondary btn-sm" onclick="abrirReporte(\''+a.id+'\')" title="Ver reporte" style="margin-right:4px">📄</button>'
+          :(a.estado!=='Cancelada'?'<button class="btn btn-primary btn-sm" onclick="abrirRegistro(\''+a.id+'\')" title="Iniciar registro de auditoría" style="margin-right:4px">▶</button>':''))+
         '<button class="del-btn" title="Eliminar" onclick="eliminarAud(\''+a.id+'\')">🗑</button></td>';
     tbody.appendChild(tr);
   });
@@ -3755,10 +3757,14 @@ function buscarFilaBase(a){
 function abrirRegistro(auditoriaId){
   const a=S.auditorias.find(x=>String(x.id)===String(auditoriaId));
   if(!a){toast('No se encontro la auditoria.');return;}
+  if(a.resultado_auditoria){toast('Esta auditoria ya tiene registro ('+a.resultado_auditoria+').');return;}
+  if(S.role==='admin'&&a.auditor&&a.auditor!=='No disponible'&&norm(a.auditor)!==norm(S.user||'')){
+    if(!confirm('Esta auditoria esta asignada a '+a.auditor+'. El registro quedara a nombre de '+S.user+'. Continuar?'))return;
+  }
   if(!S.defectos.length){toast('Aun no hay defectos en el catalogo. Pide al administrador que los cargue en la pestana Defectos.');}
   const candidatos=S.auditorias.filter(x=>
     x.id!==a.id&&x.marca===a.marca&&norm(x.ref)===norm(a.ref)&&norm(x.color_pantone||'')===norm(a.color_pantone||'')&&
-    norm((x.paq||'').toString())===norm((a.paq||'').toString())&&x.fecha_audit===a.fecha_audit&&!(x.estado||'').startsWith('Auditada'));
+    norm((x.paq||'').toString())===norm((a.paq||'').toString())&&x.fecha_audit===a.fecha_audit&&!(x.estado||'').startsWith('Auditada')&&x.estado!=='Cancelada'&&!x.resultado_auditoria);
   S.registroActual={principal:a,candidatos,seleccionados:[a.id],cantLote:0,muestreo:null,resultado:null,hallazgos:[],totalDefectuosas:0,rechazoPrevio:undefined,inicioRegistro:new Date().toISOString()};
   renderModalRegistro();
   document.getElementById('modalRegistro').style.display='flex';
@@ -4111,7 +4117,7 @@ async function guardarRegistro(){
     const resCorreo=await enviarCorreoAuditoria(a,body,gruposSeleccionados,registroId);
     toast('Registro de auditoria guardado ('+ctx.resultado.estado+') — '+resumenCorreo(resCorreo),!(resCorreo&&(resCorreo.sinDestinatarios||resCorreo.fallidos.length)));
     cerrarModalRegistro();
-    await cargarAudsAuditor();
+    if(S.role==='admin'){ await cargarDatosAdmin(); } else { await cargarAudsAuditor(); }
   }catch(e){toast('Error al guardar el registro.');}
   btn.disabled=false;btn.textContent='Guardar registro de auditoria';
 }
